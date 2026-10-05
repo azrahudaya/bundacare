@@ -8,7 +8,7 @@ const { DateTime } = require("luxon");
 const TIMEZONE = "Asia/Jakarta";
 const ROOT = path.join(__dirname, "..");
 const DATA_DIR = path.join(ROOT, "data");
-const DB_PATH = path.join(DATA_DIR, "remindcare.db");
+const DB_PATH = path.join(DATA_DIR, "bundacare.db");
 
 function run(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -78,7 +78,7 @@ async function createSchema(db) {
       routine_meds INTEGER,
       tea INTEGER,
       reminder_person TEXT,
-      allow_remindcare INTEGER,
+      allow_bundacare INTEGER,
       reminder_time TEXT,
       is_admin INTEGER NOT NULL DEFAULT 0,
       is_allowed INTEGER NOT NULL DEFAULT 0,
@@ -173,7 +173,7 @@ async function insertUser(db, fields) {
     routine_meds: 1,
     tea: 0,
     reminder_person: "Suami",
-    allow_remindcare: 1,
+    allow_bundacare: 1,
     reminder_time: "20:00",
     is_admin: 0,
     is_allowed: 1,
@@ -417,7 +417,7 @@ async function main() {
       reminder_time: null,
       status: "onboarding",
       onboarding_step: 4,
-      allow_remindcare: 0,
+      allow_bundacare: 0,
       created_at: "2026-05-29T14:10:00+07:00",
       updated_at: "2026-05-30T09:00:00+07:00",
       logs: null,

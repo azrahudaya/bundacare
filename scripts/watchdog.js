@@ -24,7 +24,7 @@ const STATE_FILE = path.join(DATA_DIR, "watchdog-state.json");
 const MAX_AGE_MS = Number(process.env.WATCHDOG_MAX_AGE_MS || 10 * 60 * 1000);
 const NOT_READY_MS = Number(process.env.WATCHDOG_NOT_READY_MS || 20 * 60 * 1000);
 const REPEAT_MS = Number(process.env.WATCHDOG_REPEAT_MS || 6 * 60 * 60 * 1000);
-const SERVICE = String(process.env.WATCHDOG_SERVICE || "remindcare-bot");
+const SERVICE = String(process.env.WATCHDOG_SERVICE || "bundacare-bot");
 const AUTO_RESTART = String(process.env.WATCHDOG_RESTART || "0") === "1";
 
 function readJson(file) {

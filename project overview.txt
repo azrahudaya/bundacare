@@ -1,7 +1,7 @@
 ﻿PROJECT OVERVIEW - REMINDCARE WHATSAPP BOT
 
 Ringkasan
-pregnancy-reminder-bot adalah bot WhatsApp berbasis Node.js untuk mendampingi ibu hamil.
+bundacare adalah bot WhatsApp berbasis Node.js untuk mendampingi ibu hamil.
 Fokus utamanya adalah pengingat konsumsi tablet FE harian, pencatatan jawaban
 "Sudah" atau "Belum", edukasi menjelang persalinan, validasi apakah user sudah
 melahirkan, pendataan persalinan, serta reminder kunjungan masa nifas dan
@@ -27,7 +27,7 @@ Struktur Project
 - tests/parse.test.js
   Unit test untuk parsing, validasi waktu/tanggal, hitung HPL, validasi
   persalinan, postpartum, retry backoff, dan command persalinan.
-- data/remindcare.db
+- data/bundacare.db
   Database SQLite runtime. File ini dibuat/dipakai saat aplikasi berjalan.
 - data/admin_web_password.txt
   Password admin web yang dibuat otomatis jika ADMIN_WEB_PASSWORD tidak diset.
@@ -36,7 +36,7 @@ Struktur Project
   Data session/cache WhatsApp Web lokal.
 - daftar-fitur-flow-trigger.txt
   Dokumentasi fitur, trigger, dan flow yang sudah ada sebelumnya.
-- data backup/remindcare.db
+- data backup/bundacare.db
   Backup database.
 Cara Menjalankan
 1. Install dependency:
@@ -56,7 +56,7 @@ Script
 Flow Runtime Utama
 1. Aplikasi start.
 2. Folder data dipastikan ada.
-3. Database SQLite dibuka di data/remindcare.db.
+3. Database SQLite dibuka di data/bundacare.db.
 4. Tabel dan kolom database dibuat/migrasi otomatis.
 5. Admin web Express dijalankan jika ADMIN_WEB_ENABLED tidak bernilai 0/false.
 6. Client WhatsApp Web dibuat dengan LocalAuth.
@@ -137,7 +137,7 @@ Alur:
 2. Bot mengirim pertanyaan onboarding pertama.
 3. User menjawab pertanyaan secara berurutan.
 4. Jawaban divalidasi sesuai tipe data.
-5. Jika user menolak diingatkan oleh pregnancy-reminder-bot, status menjadi active tetapi
+5. Jika user menolak diingatkan oleh bundacare, status menjadi active tetapi
    reminder_time dikosongkan dan reminder tidak aktif.
 6. Jika onboarding selesai, status menjadi active, reminder_time tersimpan, dan
    bot mengirim konfirmasi jadwal reminder.
@@ -150,7 +150,7 @@ Pertanyaan Onboarding
 5. Apakah rutin mengonsumsi obat.
 6. Apakah masih mengonsumsi teh.
 7. Siapa yang biasanya mengingatkan minum obat.
-8. Apakah mau diingatkan pregnancy-reminder-bot.
+8. Apakah mau diingatkan bundacare.
 9. Jam reminder harian.
 
 Flow Pesan Pembuka
@@ -158,7 +158,7 @@ Trigger:
 - Nomor baru mengirim pesan apa pun selain start/mulai.
 
 Alur:
-1. Bot mengirim perkenalan singkat pregnancy-reminder-bot.
+1. Bot mengirim perkenalan singkat bundacare.
 2. Bot meminta user mengetik start.
 3. User belum masuk onboarding sebelum mengirim start/mulai.
 
@@ -411,7 +411,7 @@ Catatan Teknis
 - index.js saat ini bersifat monolith. Semua logic bot, database, admin web,
   dan scheduler berada di satu file.
 - Database dan session WhatsApp bersifat lokal. Backup perlu dilakukan dari
-  data/remindcare.db dan folder session jika ingin memindahkan server.
+  data/bundacare.db dan folder session jika ingin memindahkan server.
 - Jangan membagikan isi data/admin_web_password.txt.
 - Jika admin web dipakai di production, sebaiknya set ADMIN_WEB_PASSWORD via
   environment variable dan jalankan di balik HTTPS/reverse proxy.

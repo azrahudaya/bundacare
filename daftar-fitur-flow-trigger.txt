@@ -28,7 +28,7 @@ Format:
   - Field yes/no divalidasi (ya/tidak).
   - Jam divalidasi ke format HH:MM.
   - HPHT divalidasi ke format tanggal valid.
-  - Jika user menolak diingatkan (allow_remindcare = tidak), onboarding ditutup dan reminder tidak diaktifkan.
+  - Jika user menolak diingatkan (allow_bundacare = tidak), onboarding ditutup dan reminder tidak diaktifkan.
   - Jika selesai, user jadi active dan jam reminder tersimpan.
 
 4) Command Menu dan Info Dasar
@@ -42,13 +42,13 @@ Format:
   - User kirim `start` atau `mulai`.
 - Flow:
   - Jika jam belum ada: user diarahkan ke step input jam (onboarding step 9).
-  - Jika jam sudah ada: set active + allow_remindcare=1, lalu konfirmasi aktif.
+  - Jika jam sudah ada: set active + allow_bundacare=1, lalu konfirmasi aktif.
 
 6) Pause Reminder (`stop`/`berhenti`)
 - Trigger:
   - User kirim `stop` atau `berhenti`.
 - Flow:
-  - allow_remindcare=0, status=paused.
+  - allow_bundacare=0, status=paused.
   - Bot kirim konfirmasi jeda.
 
 7) Ubah Jam Reminder (`ubah jam`, `set jam`, `jam`)
@@ -56,7 +56,7 @@ Format:
   - User kirim pola ubah jam.
 - Flow:
   - Jam diparse/validasi.
-  - Jika valid: reminder_time diupdate, status active, allow_remindcare=1.
+  - Jika valid: reminder_time diupdate, status active, allow_bundacare=1.
   - Jika tidak valid: bot kirim contoh format.
 
 8) Hapus Akun dengan Konfirmasi 2x (`delete`/`hapus`)
@@ -146,7 +146,7 @@ Format:
 - Trigger:
   - Saat tick reminder: masa kehamilan lewat batas (`PREGNANCY_WEEKS_LIMIT`, default 42), delivery sudah terkonfirmasi, tidak ada monitoring postpartum aktif, tidak sedang input data persalinan.
 - Flow:
-  - Status user jadi completed, allow_remindcare=0.
+  - Status user jadi completed, allow_bundacare=0.
   - Bot kirim notifikasi selesai masa reminder kehamilan.
 
 19) Rate Limiting Anti-Spam

@@ -215,12 +215,12 @@ async function run() {
 
   await test("buildNeedsAction menandai user yang tidak akan menerima pengingat", () => {
     const items = mod.buildNeedsAction([
-      { wa_id: "a@c.us", name: "punya jam tapi belum jalan", status: "onboarding", reminder_time: "10:30", allow_remindcare: 1, is_blocked: 0 },
-      { wa_id: "b@c.us", name: "aktif tanpa jam", status: "active", reminder_time: null, allow_remindcare: 1, is_blocked: 0 },
-      { wa_id: "c@c.us", name: "gagal kirim", status: "active", reminder_time: "07:00", allow_remindcare: 1, is_blocked: 0, fe_poll_fail_count: 3 },
-      { wa_id: "d@c.us", name: "diblokir", status: "active", reminder_time: "07:00", allow_remindcare: 1, is_blocked: 1 },
-      { wa_id: "e@c.us", name: "sehat", status: "active", reminder_time: "07:00", allow_remindcare: 1, is_blocked: 0, fe_poll_fail_count: 0 },
-      { wa_id: "f@c.us", name: "selesai", status: "completed", reminder_time: "07:00", allow_remindcare: 0, is_blocked: 0 },
+      { wa_id: "a@c.us", name: "punya jam tapi belum jalan", status: "onboarding", reminder_time: "10:30", allow_bundacare: 1, is_blocked: 0 },
+      { wa_id: "b@c.us", name: "aktif tanpa jam", status: "active", reminder_time: null, allow_bundacare: 1, is_blocked: 0 },
+      { wa_id: "c@c.us", name: "gagal kirim", status: "active", reminder_time: "07:00", allow_bundacare: 1, is_blocked: 0, fe_poll_fail_count: 3 },
+      { wa_id: "d@c.us", name: "diblokir", status: "active", reminder_time: "07:00", allow_bundacare: 1, is_blocked: 1 },
+      { wa_id: "e@c.us", name: "sehat", status: "active", reminder_time: "07:00", allow_bundacare: 1, is_blocked: 0, fe_poll_fail_count: 0 },
+      { wa_id: "f@c.us", name: "selesai", status: "completed", reminder_time: "07:00", allow_bundacare: 0, is_blocked: 0 },
     ]);
     const byId = Object.fromEntries(items.map((x) => [x.wa_id, x]));
     assert.strictEqual(byId["a@c.us"].reason, "not_running");
@@ -236,11 +236,11 @@ async function run() {
     try {
       await mod.ensureSettingsTable(db);
       await new Promise((resolve, reject) => db.run(
-        "CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, status TEXT, reminder_time TEXT, allow_remindcare INTEGER, is_blocked INTEGER)",
+        "CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, status TEXT, reminder_time TEXT, allow_bundacare INTEGER, is_blocked INTEGER)",
         (err) => (err ? reject(err) : resolve()),
       ));
       const insert = (wa, status, time, allow, blocked) => new Promise((resolve, reject) => db.run(
-        "INSERT INTO users (wa_id, status, reminder_time, allow_remindcare, is_blocked) VALUES (?,?,?,?,?)",
+        "INSERT INTO users (wa_id, status, reminder_time, allow_bundacare, is_blocked) VALUES (?,?,?,?,?)",
         [wa, status, time, allow, blocked], (err) => (err ? reject(err) : resolve()),
       ));
       await insert("jam-terisi@c.us", "onboarding", "10:30", 1, 0);

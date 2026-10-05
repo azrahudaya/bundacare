@@ -1,6 +1,6 @@
 [Unit]
 Description=pregnancy-reminder-bot WhatsApp Bot
-Documentation=file:/opt/remindcare/README.md
+Documentation=file:/opt/bundacare/README.md
 After=network-online.target
 Wants=network-online.target
 
@@ -8,9 +8,9 @@ Wants=network-online.target
 Type=simple
 # Ganti User dan WorkingDirectory sesuai mesin Anda.
 User=ubuntu
-WorkingDirectory=/opt/remindcare
+WorkingDirectory=/opt/bundacare
 # File .env dibaca kalau ada. Isi dari .env.example.
-EnvironmentFile=-/opt/remindcare/.env
+EnvironmentFile=-/opt/bundacare/.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node index.js
 # Bot mengirim pesan ke pasien: selalu hidupkan lagi kalau mati, tapi jangan berputar
@@ -29,13 +29,13 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 MemoryMax=1500M
 # Tanda minus di depan path berarti abaikan kalau direktorinya belum ada.
-ReadWritePaths=-/opt/remindcare/data -/opt/remindcare/.wwebjs_auth -/opt/remindcare/.wwebjs_cache -/opt/remindcare/.config -/home/remindcare/.cache -/home/remindcare/.config
+ReadWritePaths=-/opt/bundacare/data -/opt/bundacare/.wwebjs_auth -/opt/bundacare/.wwebjs_cache -/opt/bundacare/.config -/home/bundacare/.cache -/home/bundacare/.config
 # Beri waktu shutdown rapi (menutup DB dan melepas lock instance).
 KillSignal=SIGTERM
 TimeoutStopSec=60
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=remindcare
+SyslogIdentifier=bundacare
 
 [Install]
 WantedBy=multi-user.target

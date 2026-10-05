@@ -1,12 +1,12 @@
 [Unit]
 Description=Jalankan penjaga pregnancy-reminder-bot tiap 5 menit
-Documentation=file:/opt/remindcare/deploy/INSTALL.md
+Documentation=file:/opt/bundacare/deploy/INSTALL.md
 
 [Timer]
 OnBootSec=5min
 OnUnitActiveSec=5min
 AccuracySec=30s
-Unit=remindcare-watchdog.service
+Unit=bundacare-watchdog.service
 
 [Install]
 WantedBy=timers.target

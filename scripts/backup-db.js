@@ -14,7 +14,7 @@ const { execFileSync } = require("child_process");
 const sqlite3 = require("sqlite3").verbose();
 
 const DATA_DIR = path.join(__dirname, "..", "data");
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "remindcare.db");
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "bundacare.db");
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(DATA_DIR, "backups");
 const KEEP_DAYS = Number(process.env.BACKUP_KEEP_DAYS || 14);
 // Salinan di luar VPS: isi salah satu. Direktori (mis. mount S3/rclone) lebih aman
@@ -75,7 +75,7 @@ function rotate(keepDays) {
   const cutoff = Date.now() - keepDays * 86400000;
   const removed = [];
   for (const name of fs.readdirSync(BACKUP_DIR)) {
-    if (!name.startsWith("remindcare-") || !name.endsWith(".db")) {
+    if (!name.startsWith("bundacare-") || !name.endsWith(".db")) {
       continue;
     }
     const full = path.join(BACKUP_DIR, name);
@@ -146,7 +146,7 @@ async function main() {
   }
   fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o700 });
 
-  const target = path.join(BACKUP_DIR, `remindcare-${stamp()}.db`);
+  const target = path.join(BACKUP_DIR, `bundacare-${stamp()}.db`);
   if (fs.existsSync(target)) {
     console.log(`Backup hari ini sudah ada: ${target}`);
     return;

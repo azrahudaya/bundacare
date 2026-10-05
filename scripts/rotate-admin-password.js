@@ -12,7 +12,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
 const DATA_DIR = path.join(__dirname, "..", "data");
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "remindcare.db");
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "bundacare.db");
 const PASSWORD_FILE = path.join(DATA_DIR, "admin_web_password.txt");
 const MODE = 0o600;
 

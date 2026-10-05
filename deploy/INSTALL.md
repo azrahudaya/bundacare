@@ -2,18 +2,18 @@
 
 Perintah di bawah dijalankan sebagai user yang akan menjalankan bot (contoh: `ubuntu`).
 
-Catatan nama: nama berkas unit (`remindcare-bot.service` dan kawan-kawan), jalur
-`/opt/remindcare`, nama berkas basis data, dan `WA_CLIENT_ID` sengaja tidak ikut memakai nama
+Catatan nama: nama berkas unit (`bundacare-bot.service` dan kawan-kawan), jalur
+`/opt/bundacare`, nama berkas basis data, dan `WA_CLIENT_ID` sengaja tidak ikut memakai nama
 produk ini, supaya cocok dengan pemasangan yang sudah berjalan di VPS. Menggantinya harus
 dikerjakan bersamaan: ganti nama unit, pindahkan folder aplikasi, pindahkan basis data, lalu
 taut ulang sesi WhatsApp (client id menentukan nama folder sesi, jadi mengubahnya membuat
 sesi lama tidak terbaca).
 
 ```bash
-sudo mkdir -p /opt/remindcare
-sudo chown "$USER":"$USER" /opt/remindcare
-# salin isi repo ke /opt/remindcare (rsync, git clone, atau tar)
-cd /opt/remindcare
+sudo mkdir -p /opt/bundacare
+sudo chown "$USER":"$USER" /opt/bundacare
+# salin isi repo ke /opt/bundacare (rsync, git clone, atau tar)
+cd /opt/bundacare
 npm install
 cp .env.example .env
 # isi .env minimal: ADMIN_WA_IDS, ALLOWLIST_WA_IDS, ENFORCE_ALLOWLIST, ADMIN_WEB_PASSWORD (opsional)
@@ -23,19 +23,19 @@ node index.js          # pairing pertama, pindai QR, lalu Ctrl+C
 Setelah QR berhasil dipindai, cadangkan folder sesi sebelum menyalakan service:
 
 ```bash
-tar czf ~/remindcare-session-$(date +%F).tar.gz .wwebjs_auth
+tar czf ~/bundacare-session-$(date +%F).tar.gz .wwebjs_auth
 ```
 
 Pasang service bot dan timer backup:
 
 ```bash
-sudo cp deploy/remindcare-bot.service /etc/systemd/system/
-sudo cp deploy/remindcare-backup.service deploy/remindcare-backup.timer /etc/systemd/system/
+sudo cp deploy/bundacare-bot.service /etc/systemd/system/
+sudo cp deploy/bundacare-backup.service deploy/bundacare-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now remindcare-bot.service
-sudo systemctl enable --now remindcare-backup.timer
-systemctl status remindcare-bot --no-pager
-journalctl -u remindcare-bot -n 50 --no-pager
+sudo systemctl enable --now bundacare-bot.service
+sudo systemctl enable --now bundacare-backup.timer
+systemctl status bundacare-bot --no-pager
+journalctl -u bundacare-bot -n 50 --no-pager
 ```
 
 Penting: `enable --now` untuk timer, bukan `enable` saja. Perintah `enable` tanpa `--now`
@@ -45,10 +45,10 @@ sehingga backup tidak pernah dijalankan sampai server di-reboot.
 Verifikasi bahwa timer benar-benar terjadwal:
 
 ```bash
-systemctl is-active remindcare-backup.timer          # harus active
-systemctl list-timers remindcare-backup.timer        # baris NEXT harus terisi
-systemctl start remindcare-backup.service            # jalankan sekali untuk uji
-journalctl -u remindcare-backup -n 5 --no-pager      # harus muncul "Backup ok"
+systemctl is-active bundacare-backup.timer          # harus active
+systemctl list-timers bundacare-backup.timer        # baris NEXT harus terisi
+systemctl start bundacare-backup.service            # jalankan sekali untuk uji
+journalctl -u bundacare-backup -n 5 --no-pager      # harus muncul "Backup ok"
 ```
 
 ## Menautkan sesi tanpa QR (server tanpa layar)
@@ -59,7 +59,7 @@ meminta kode 8 digit dan menuliskannya ke journal sekaligus ke `data/pairing-cod
 
 ```bash
 grep WA_PAIRING_NUMBER .env
-sudo systemctl restart remindcare-bot
+sudo systemctl restart bundacare-bot
 sleep 20
 cat data/pairing-code.txt
 ```
@@ -73,7 +73,7 @@ kosongkan `WA_PAIRING_NUMBER` kalau mau kembali ke jalur QR.
 Verifikasi sesi benar-benar tersambung, jangan hanya melihat kode muncul:
 
 ```bash
-journalctl -u remindcare-bot -n 5 --no-pager | grep -i "siap digunakan"
+journalctl -u bundacare-bot -n 5 --no-pager | grep -i "siap digunakan"
 ss -ltn | grep 3030                                   # panel admin mendengarkan
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3030/admin/login   # harus 200
 ```
@@ -103,10 +103,10 @@ Ubuntu 23.10 ke atas memblokirnya secara default, dan tanpa perbaikan ini bot ha
 dengan `PUPPETEER_NO_SANDBOX=1` (sandbox mati).
 
 ```bash
-printf 'kernel.apparmor_restrict_unprivileged_userns=0\n' | sudo tee /etc/sysctl.d/99-remindcare-userns.conf
-sudo sysctl -p /etc/sysctl.d/99-remindcare-userns.conf
+printf 'kernel.apparmor_restrict_unprivileged_userns=0\n' | sudo tee /etc/sysctl.d/99-bundacare-userns.conf
+sudo sysctl -p /etc/sysctl.d/99-bundacare-userns.conf
 # di .env: PUPPETEER_NO_SANDBOX=0
-sudo systemctl restart remindcare-bot
+sudo systemctl restart bundacare-bot
 pgrep -a -f chrome-linux64/chrome | grep -c -- "--no-sandbox"   # harus 0
 ```
 
@@ -140,7 +140,7 @@ Alarm dari dalam bot dikirim ke tiga jalur: webhook, Telegram, dan WhatsApp admi
 WhatsApp justru mati pada saat WhatsApp bermasalah, jadi isi minimal satu jalur luar:
 
 ```bash
-ALERT_WEBHOOK_URL=https://contoh.internal/hooks/remindcare
+ALERT_WEBHOOK_URL=https://contoh.internal/hooks/bundacare
 # atau
 ALERT_TELEGRAM_TOKEN=123456:ABC...
 ALERT_TELEGRAM_CHAT_ID=123456789
@@ -157,29 +157,29 @@ lama, penjaga mengirim alarm lewat jalur luar di atas. Ini menangkap kasus yang 
 terlihat dari luar: proses hidup tetapi menggantung.
 
 ```bash
-cd /opt/remindcare
-sudo cp deploy/remindcare-watchdog.service /etc/systemd/system/
-sudo cp deploy/remindcare-watchdog.timer /etc/systemd/system/
+cd /opt/bundacare
+sudo cp deploy/bundacare-watchdog.service /etc/systemd/system/
+sudo cp deploy/bundacare-watchdog.timer /etc/systemd/system/
 # samakan User, Group, dan WorkingDirectory dengan unit bot
 sudo systemctl daemon-reload
-sudo systemctl enable --now remindcare-watchdog.timer
-systemctl list-timers remindcare-watchdog.timer
-journalctl -u remindcare-watchdog -n 20 --no-pager
+sudo systemctl enable --now bundacare-watchdog.timer
+systemctl list-timers bundacare-watchdog.timer
+journalctl -u bundacare-watchdog -n 20 --no-pager
 ```
 
 Uji tanpa mengirim apa pun:
 
 ```bash
-sudo -u remindcare node scripts/watchdog.js --dry-run   # harus melaporkan keadaan wajar
+sudo -u bundacare node scripts/watchdog.js --dry-run   # harus melaporkan keadaan wajar
 ```
 
 Penjaga juga bisa merestart bot sendiri kalau `WATCHDOG_RESTART=1`. Itu butuh izin sempit
 lewat sudoers, bukan sudo penuh:
 
 ```bash
-echo 'remindcare ALL=(root) NOPASSWD: /usr/bin/systemctl restart remindcare-bot' \
-  | sudo tee /etc/sudoers.d/remindcare-watchdog
-sudo chmod 0440 /etc/sudoers.d/remindcare-watchdog
+echo 'bundacare ALL=(root) NOPASSWD: /usr/bin/systemctl restart bundacare-bot' \
+  | sudo tee /etc/sudoers.d/bundacare-watchdog
+sudo chmod 0440 /etc/sudoers.d/bundacare-watchdog
 sudo visudo -c
 ```
 
@@ -208,8 +208,8 @@ MemoryMax=1500M
 diakui sah. Backup yang hanya ada di VPS yang sama belum aman, jadi isi salah satu:
 
 ```bash
-BACKUP_OFFSITE_DIR=/mnt/backup-remindcare     # direktori mount (rclone, S3, NFS)
-BACKUP_REMOTE_CMD=rclone copy %f remote:remindcare-backups/   # perintah sendiri, %f = berkas backup
+BACKUP_OFFSITE_DIR=/mnt/backup-bundacare     # direktori mount (rclone, S3, NFS)
+BACKUP_REMOTE_CMD=rclone copy %f remote:bundacare-backups/   # perintah sendiri, %f = berkas backup
 ```
 
 Tanpa keduanya, skrip tetap jalan tetapi mencetak peringatan bahwa salinan luar VPS belum ada.
@@ -220,32 +220,32 @@ Sesi ter-logout (biasanya karena WhatsApp Web diperbarui, atau ada dua proses ya
 memakai folder `.wwebjs_auth` yang sama):
 
 ```bash
-sudo systemctl stop remindcare-bot
+sudo systemctl stop bundacare-bot
 rm -rf .wwebjs_auth
-tar xzf ~/remindcare-session-TANGGAL.tar.gz
-sudo systemctl start remindcare-bot
+tar xzf ~/bundacare-session-TANGGAL.tar.gz
+sudo systemctl start bundacare-bot
 ```
 
 Kalau backup sesi tidak ada, jalankan `node index.js` untuk memindai QR baru.
 
 ## Memulihkan database
 
-Pakai berkas hasil backup (`VACUUM INTO`), bukan salinan manual `data/remindcare.db`:
+Pakai berkas hasil backup (`VACUUM INTO`), bukan salinan manual `data/bundacare.db`:
 salinan manual tidak memuat isi WAL terakhir, jadi transaksi paling baru bisa hilang.
 
 ```bash
-cd /opt/remindcare
-sudo systemctl stop remindcare-bot
+cd /opt/bundacare
+sudo systemctl stop bundacare-bot
 ls -la data/backups/                       # pilih berkas terbaru
-sudo -u remindcare node -e "
-const s=require('sqlite3').verbose();const d=new s.Database('data/backups/remindcare-TANGGAL-JAM.db');
+sudo -u bundacare node -e "
+const s=require('sqlite3').verbose();const d=new s.Database('data/backups/bundacare-TANGGAL-JAM.db');
 d.get('PRAGMA integrity_check',(e,r)=>{console.log(e?e.message:r);d.close();});
 "
-cp data/backups/remindcare-TANGGAL-JAM.db data/remindcare.db
-rm -f data/remindcare.db-wal data/remindcare.db-shm
-sudo chown remindcare:remindcare data/remindcare.db
-sudo systemctl start remindcare-bot
-journalctl -u remindcare-bot -n 20 --no-pager | grep -iE "siap digunakan|integrity"
+cp data/backups/bundacare-TANGGAL-JAM.db data/bundacare.db
+rm -f data/bundacare.db-wal data/bundacare.db-shm
+sudo chown bundacare:bundacare data/bundacare.db
+sudo systemctl start bundacare-bot
+journalctl -u bundacare-bot -n 20 --no-pager | grep -iE "siap digunakan|integrity"
 ```
 
 Kalau `integrity_check` gagal saat start, bot menahan semua pengiriman dan mengirim alarm.

@@ -9,7 +9,7 @@ const net = require("net");
 const os = require("os");
 const path = require("path");
 
-const WORK = fs.mkdtempSync(path.join(os.tmpdir(), "remindcare-http-"));
+const WORK = fs.mkdtempSync(path.join(os.tmpdir(), "bundacare-http-"));
 const DATA_DIR = path.join(WORK, "data");
 fs.mkdirSync(DATA_DIR, { recursive: true });
 

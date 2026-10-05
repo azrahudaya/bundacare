@@ -101,7 +101,7 @@ const DISABLE_SANDBOX =
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 // Nama berkas basis data dan nama kolomnya dipertahankan supaya basis data yang
 // sudah berjalan di produksi tetap terbaca tanpa migrasi.
-const DB_PATH = path.join(DATA_DIR, "remindcare.db");
+const DB_PATH = path.join(DATA_DIR, "bundacare.db");
 // Nomor bot, format internasional tanpa tanda plus, contoh 6281234567890.
 // Kalau diisi, penautan tidak memakai QR: WhatsApp meminta kode 8 digit yang diketik
 // di Perangkat tertaut > Tautkan dengan nomor telepon. Dipakai untuk server tanpa layar.
@@ -159,7 +159,7 @@ const processedMessageIds = new Map();
 const PROCESSED_MESSAGE_TTL_MS = 5 * 60 * 1000;
 
 const QUESTIONS = [
-  { field: "name", text: "Halo, aku pregnancy-reminder-bot. Boleh tahu nama Ibu? \u{1F60A}" },
+  { field: "name", text: "Halo, aku bundacare. Boleh tahu nama Ibu? \u{1F60A}" },
   { field: "age", text: "Usia berapa? 🎂" },
   { field: "pregnancy_number", text: "Kehamilan ke berapa? 🤰" },
   {
@@ -182,12 +182,12 @@ const QUESTIONS = [
   },
   {
     field: "allow_remindcare",
-    text: "Mau diingatkan pregnancy-reminder-bot untuk minum obat? (ya/tidak) 🔔",
+    text: "Mau diingatkan bundacare untuk minum obat? (ya/tidak) 🔔",
     type: "yesno",
   },
   {
     field: "reminder_time",
-    text: "pregnancy-reminder-bot bakal mengingatkan tiap hari lewat WhatsApp. Mau diingatkan setiap jam berapa? (format 24 jam, contoh 17:00) ⏰",
+    text: "bundacare bakal mengingatkan tiap hari lewat WhatsApp. Mau diingatkan setiap jam berapa? (format 24 jam, contoh 17:00) ⏰",
     type: "time",
   },
 ];
@@ -535,7 +535,7 @@ async function recordAlias(db, alias, canonical) {
   );
 }
 
-// Nomor yang boleh memakai pregnancy-reminder-bot datang dari dua sumber: berkas .env yang dibaca
+// Nomor yang boleh memakai bundacare datang dari dua sumber: berkas .env yang dibaca
 // saat start, dan daftar di DB yang diubah dari panel admin tanpa restart. Daftar DB
 // disimpan di memori karena gerbang allowlist dicek pada setiap pesan masuk.
 const panelAllowedNumbers = new Map();
@@ -1277,7 +1277,7 @@ function buildUserInfoMessage(user, postpartumLogs, now = nowWib()) {
   }
 
   const lines = [
-    `*Info Penting pregnancy-reminder-bot* - ${name}`,
+    `*Info Penting bundacare* - ${name}`,
     "",
     "*Status Pengingat*",
     `*Status akun:* ${accountStatusText}`,
@@ -1557,7 +1557,7 @@ function getPostpartumDueAt(deliveryAt, visit) {
 
 function buildPostpartumEducationMessage(user, now) {
   const name = getDisplayName(user);
-  return `Selamat atas kelahiran buah hati, ${name}. 🤍\npregnancy-reminder-bot akan terus menemani Ibu sampai masa krusial ini selesai.\nMasa nifas dan masa neonatal adalah masa yang sangat penting bagi ibu dan bayi. Pada periode ini, risiko gangguan kesehatan masih tinggi sehingga pemantauan rutin sangat diperlukan untuk memastikan ibu dan bayi dalam kondisi sehat.\npregnancy-reminder-bot akan mengingatkan jadwal kunjungan KF dan KN sesuai waktu yang dianjurkan.\nBaca artikel lanjutan di: ${DELIVERY_ARTICLE_URL}`;
+  return `Selamat atas kelahiran buah hati, ${name}. 🤍\nbundacare akan terus menemani Ibu sampai masa krusial ini selesai.\nMasa nifas dan masa neonatal adalah masa yang sangat penting bagi ibu dan bayi. Pada periode ini, risiko gangguan kesehatan masih tinggi sehingga pemantauan rutin sangat diperlukan untuk memastikan ibu dan bayi dalam kondisi sehat.\nbundacare akan mengingatkan jadwal kunjungan KF dan KN sesuai waktu yang dianjurkan.\nBaca artikel lanjutan di: ${DELIVERY_ARTICLE_URL}`;
 }
 
 function buildPostpartumVisitMessage(user, visit) {
@@ -2122,7 +2122,7 @@ function renderAdminLoginPage(message, options = {}) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Masuk - pregnancy-reminder-bot Admin</title>
+    <title>Masuk - bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
       main.login { min-height: 100dvh; display: grid; place-items: center; padding: 20px; }
       .login-card { width: 100%; max-width: 360px; }
@@ -2135,7 +2135,7 @@ function renderAdminLoginPage(message, options = {}) {
       <div class="login-card">
         <div class="panel">
           <div class="panel-head">
-            <h1>${icon("pulse")}pregnancy-reminder-bot Admin</h1>
+            <h1>${icon("pulse")}bundacare Admin</h1>
             <span class="badge">panel internal</span>
           </div>
           <div class="panel-body">
@@ -2168,7 +2168,7 @@ function renderAdminDashboardPage(options = {}) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="${csrf}">
-    <title>pregnancy-reminder-bot Admin</title>
+    <title>bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
       .kv.kv-6 > div { border-top: none; }
       .modes { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
@@ -2190,7 +2190,7 @@ function renderAdminDashboardPage(options = {}) {
     <header class="topbar">
       <div class="brand">
         ${icon("pulse")}
-        <h1>pregnancy-reminder-bot</h1>
+        <h1>bundacare</h1>
         <span class="tag">admin pengingat</span>
       </div>
       <div class="row">
@@ -2968,7 +2968,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="${csrf}">
-    <title>Detail user - pregnancy-reminder-bot Admin</title>
+    <title>Detail user - bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
       .kv.kv-3 > div { border-top: none; }
       .pager { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
@@ -4406,7 +4406,7 @@ async function buildWeeklyDigest(db, now) {
   const awal = now.minus({ days: 6 }).setLocale("id");
   const akhir = now.setLocale("id");
   const baris = [
-    `Ringkasan pregnancy-reminder-bot ${awal.toFormat("d LLLL")} sampai ${akhir.toFormat("d LLLL yyyy")}`,
+    `Ringkasan bundacare ${awal.toFormat("d LLLL")} sampai ${akhir.toFormat("d LLLL yyyy")}`,
     `Pasien aktif: ${aktif ? aktif.count : 0}`,
     `Pendataan belum selesai: ${onboarding ? onboarding.count : 0}`,
     `Pengingat terkirim minggu ini: ${totalTerkirim}`,
@@ -5295,7 +5295,7 @@ async function completeUserAfterFinalPostpartumVisit(db, client, user) {
   await sendText(
     client,
     user.wa_id,
-    "Selamat, kunjungan KF 4 sudah tercatat. Program pregnancy-reminder-bot selesai, jadi pengingat tablet FE tidak akan dikirim lagi. Jika ada program atau kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
+    "Selamat, kunjungan KF 4 sudah tercatat. Program bundacare selesai, jadi pengingat tablet FE tidak akan dikirim lagi. Jika ada program atau kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
   );
   return true;
 }
@@ -5935,7 +5935,7 @@ async function handleDeliveryDataAnswer(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      "Terima kasih, data persalinan sudah dicatat.\nBerikutnya pregnancy-reminder-bot akan mengingatkan jadwal kunjungan KF/KN sesuai rentang waktunya.\nKalau ada yang perlu diubah, ketik *edit persalinan*.",
+      "Terima kasih, data persalinan sudah dicatat.\nBerikutnya bundacare akan mengingatkan jadwal kunjungan KF/KN sesuai rentang waktunya.\nKalau ada yang perlu diubah, ketik *edit persalinan*.",
     );
     await sendPostpartumEducationIfNeeded(
       db,
@@ -6047,7 +6047,7 @@ async function handleOnboardingAnswer(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        "Baik, pregnancy-reminder-bot tidak akan mengingatkan dulu. Kalau berubah pikiran, ketik start. 👍",
+        "Baik, bundacare tidak akan mengingatkan dulu. Kalau berubah pikiran, ketik start. 👍",
       );
       return;
     }
@@ -6159,7 +6159,7 @@ async function handleOnboardingAnswer(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      `Siap! pregnancy-reminder-bot akan mengingatkan ${reminderSchedulePhrase()} jam ${finalTime} WIB. ⏰✨`,
+      `Siap! bundacare akan mengingatkan ${reminderSchedulePhrase()} jam ${finalTime} WIB. ⏰✨`,
     );
     return;
   }
@@ -6351,7 +6351,7 @@ async function handleCommand(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      "pregnancy-reminder-bot adalah tugas akhir mahasiswa Poltekkes Kemenkes Tasikmalaya jurusan kebidanan (Melva). Info dan kontak: remindcares.web.app",
+      "bundacare adalah tugas akhir mahasiswa Poltekkes Kemenkes Tasikmalaya jurusan kebidanan (Melva). Info dan kontak: remindcares.web.app",
     );
     return true;
   }
@@ -6396,7 +6396,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        "Program pregnancy-reminder-bot untuk kehamilan ini sudah selesai, jadi pengingatnya tidak diaktifkan lagi.\nKalau ada kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
+        "Program bundacare untuk kehamilan ini sudah selesai, jadi pengingatnya tidak diaktifkan lagi.\nKalau ada kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
       );
       return true;
     }
@@ -6433,7 +6433,7 @@ async function handleCommand(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      `Siap, pregnancy-reminder-bot aktif lagi jam ${user.reminder_time} WIB. ✅⏰`,
+      `Siap, bundacare aktif lagi jam ${user.reminder_time} WIB. ✅⏰`,
     );
     return true;
   }
@@ -6573,7 +6573,7 @@ async function handleMessage(db, client, msg) {
     await sendText(
       client,
       waId,
-      "Halo! 👋\nAku pregnancy-reminder-bot, pengingat untuk menemani perjalanan ibu dari kehamilan, persalinan, masa nifas, hingga perawatan bayi. 🤍\n\nUntuk mulai, ketik *start* ya. ✨",
+      "Halo! 👋\nAku bundacare, pengingat untuk menemani perjalanan ibu dari kehamilan, persalinan, masa nifas, hingga perawatan bayi. 🤍\n\nUntuk mulai, ketik *start* ya. ✨",
     );
     return;
   }
@@ -6659,7 +6659,7 @@ async function handleMessage(db, client, msg) {
     await sendText(
       client,
       waId,
-      `Halo, ${getDisplayName(user)}. Aku pregnancy-reminder-bot, pengingat tablet FE, persalinan, dan kunjungan nifas. Ketik *menu* untuk lihat perintah yang tersedia.`,
+      `Halo, ${getDisplayName(user)}. Aku bundacare, pengingat tablet FE, persalinan, dan kunjungan nifas. Ketik *menu* untuk lihat perintah yang tersedia.`,
     );
     return;
   }
@@ -7066,7 +7066,7 @@ async function runDailyFollowUps(db, client, now, today) {
         await sendText(
           client,
           user.wa_id,
-          "Pendataannya belum selesai, Bu. Ketik *start* supaya pregnancy-reminder-bot bisa mulai mengingatkan. Kalau ada kendala, balas *info*.",
+          "Pendataannya belum selesai, Bu. Ketik *start* supaya bundacare bisa mulai mengingatkan. Kalau ada kendala, balas *info*.",
           { kind: "onboarding_nudge" },
         );
         await dbRun(db, "UPDATE users SET last_onboarding_nudge_date = ? WHERE wa_id = ?", [
@@ -8404,7 +8404,7 @@ async function main() {
       // Client id menentukan nama folder sesi WhatsApp; mengubahnya memaksa taut ulang.
       clientId: process.env.WA_CLIENT_ID || "remindcare",
     }),
-    deviceName: process.env.WA_DEVICE_NAME || "pregnancy-reminder-bot",
+    deviceName: process.env.WA_DEVICE_NAME || "bundacare",
     browserName: "Chrome",
     ...pairingOptions(WA_PAIRING_NUMBER),
     ...(userAgent ? { userAgent } : {}),
@@ -8426,7 +8426,7 @@ async function main() {
   // Tanpa penghentian rapi, restart di tengah penulisan SQLite atau saat Chromium
   // memegang profil sesi berisiko merusak DB dan mengunci .wwebjs_auth.
   const shutdown = async (signal) => {
-    console.log(`Menerima ${signal}, menghentikan pregnancy-reminder-bot dengan rapi...`);
+    console.log(`Menerima ${signal}, menghentikan bundacare dengan rapi...`);
     sendGuard.setReady(false);
     if (reminderTimer) {
       clearInterval(reminderTimer);
@@ -8467,7 +8467,7 @@ async function main() {
     clientReady = true;
     lastClientReadyAt = nowWib().toISO();
     sendGuard.setReady(true);
-    console.log("pregnancy-reminder-bot siap digunakan.");
+    console.log("bundacare siap digunakan.");
     try {
       if (fs.existsSync(PAIRING_CODE_PATH)) {
         fs.unlinkSync(PAIRING_CODE_PATH);
@@ -8536,7 +8536,7 @@ if (require.main === module) {
     setTimeout(() => process.exit(1), 1000);
   });
   main().catch((err) => {
-    console.error("pregnancy-reminder-bot gagal dijalankan:", err);
+    console.error("bundacare gagal dijalankan:", err);
     process.exit(1);
   });
 }

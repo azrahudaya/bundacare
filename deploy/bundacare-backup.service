@@ -1,13 +1,13 @@
 [Unit]
 Description=Backup harian database pregnancy-reminder-bot
-After=remindcare-bot.service
+After=bundacare-bot.service
 
 [Service]
 Type=oneshot
 User=ubuntu
-WorkingDirectory=/opt/remindcare
-EnvironmentFile=-/opt/remindcare/.env
+WorkingDirectory=/opt/bundacare
+EnvironmentFile=-/opt/bundacare/.env
 ExecStart=/usr/bin/node scripts/backup-db.js
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=remindcare-backup
+SyslogIdentifier=bundacare-backup

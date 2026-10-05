@@ -1,4 +1,4 @@
-# pregnancy-reminder-bot
+# bundacare
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.22-000000?logo=express&logoColor=white)
