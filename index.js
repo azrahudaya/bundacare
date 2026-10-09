@@ -370,10 +370,7 @@ function detectChromeMajor(executablePath) {
 // macOS Chrome/101 (versi 2022) sementara proses di sini headless di mesin lain,
 // dan ketidakcocokan itu sendiri adalah jejak automation.
 function buildUserAgent(executablePath) {
-  const major = detectChromeMajor(executablePath);
-  if (!major) {
-    return null;
-  }
+  const major = detectChromeMajor(executablePath) || "130";
   if (process.platform === "win32") {
     return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
   }
@@ -1290,30 +1287,42 @@ function buildUserInfoMessage(user, postpartumLogs, now = nowWib()) {
     `*HPL:* ${formatDateId(hpl)}`,
     `*Usia kehamilan saat ini:* ${week ? `${week} minggu` : "-"}`,
     "",
-    "*Data Persalinan*",
-    `*Status input persalinan:* ${collectingDeliveryText}`,
-    `*Tanggal/jam persalinan:* ${deliveryAt ? formatDateTimeId(deliveryAt) : "-"}`,
-    `*Tempat persalinan:* ${user && user.delivery_place ? user.delivery_place : "-"}`,
-    `*Penolong persalinan:* ${
-      user && user.delivery_birth_attendant ? user.delivery_birth_attendant : "-"
-    }`,
-    `*Penyulit persalinan:* ${
-      user && user.delivery_with_complication ? user.delivery_with_complication : "-"
-    }`,
-    `*Jenis kelamin bayi:* ${user && user.baby_gender ? user.baby_gender : "-"}`,
-    `*BB lahir bayi:* ${user && user.baby_birth_weight ? user.baby_birth_weight : "-"}`,
-    "",
-    "*Target & Progres Kunjungan KF/KN*",
-    `*Target kunjungan:* ${POSTPARTUM_VISIT_SCHEDULES.length} kunjungan`,
-    `*Progres tercapai:* ${confirmedVisits}/${POSTPARTUM_VISIT_SCHEDULES.length}`,
-    "",
-    "*Rincian Kunjungan*",
-    ...visitLines,
-    "",
     "*Catatan Harian*",
     `*Obat rutin:* ${toYesNoLabel(user ? user.routine_meds : null)}`,
     `*Konsumsi teh:* ${toYesNoLabel(user ? user.tea : null)}`,
   ];
+
+  const isPostpartum = Boolean(deliveryAt && deliveryConfirmed);
+  if (isPostpartum) {
+    lines.push(
+      "",
+      "*Data Persalinan*",
+      `*Status input persalinan:* ${collectingDeliveryText}`,
+      `*Tanggal/jam persalinan:* ${formatDateTimeId(deliveryAt)}`,
+      `*Tempat persalinan:* ${user && user.delivery_place ? user.delivery_place : "-"}`,
+      `*Penolong persalinan:* ${
+        user && user.delivery_birth_attendant ? user.delivery_birth_attendant : "-"
+      }`,
+      `*Penyulit persalinan:* ${
+        user && user.delivery_with_complication ? user.delivery_with_complication : "-"
+      }`,
+      `*Jenis kelamin bayi:* ${user && user.baby_gender ? user.baby_gender : "-"}`,
+      `*BB lahir bayi:* ${user && user.baby_birth_weight ? user.baby_birth_weight : "-"}`,
+      "",
+      "*Target & Progres Kunjungan KF/KN*",
+      `*Target kunjungan:* ${POSTPARTUM_VISIT_SCHEDULES.length} kunjungan`,
+      `*Progres tercapai:* ${confirmedVisits}/${POSTPARTUM_VISIT_SCHEDULES.length}`,
+      "",
+      "*Rincian Kunjungan*",
+      ...visitLines,
+    );
+  } else {
+    lines.push(
+      "",
+      "*Kunjungan Nifas & Bayi (KF/KN)*",
+      "Jadwal kunjungan nifas KF1 sampai KF4 akan otomatis aktif setelah konfirmasi persalinan.",
+    );
+  }
 
   return lines.join("\n");
 }
@@ -1539,13 +1548,22 @@ function hasConfirmedDelivery(user) {
   return Number.isFinite(deliveryStep) && deliveryStep > 0;
 }
 
-function isPostpartumMonitoringActive(user) {
-  return Boolean(
-    user &&
-    user.delivery_data_completed_at &&
-    user.delivery_date_iso &&
-    user.delivery_time,
-  );
+function isPostpartumMonitoringActive(user, now = nowWib()) {
+  if (
+    !user ||
+    !user.delivery_data_completed_at ||
+    !user.delivery_date_iso ||
+    !user.delivery_time
+  ) {
+    return false;
+  }
+  const deliveryAt = getDeliveryDateTime(user);
+  if (!deliveryAt) {
+    return false;
+  }
+  // Masa nifas normal berlangsung sampai 42 hari (KF4) pasca persalinan
+  const diffDays = Math.floor(now.startOf("day").diff(deliveryAt.startOf("day"), "days").days);
+  return Number.isFinite(diffDays) && diffDays >= 0 && diffDays <= 42;
 }
 
 function getPostpartumDueAt(deliveryAt, visit) {
@@ -3008,6 +3026,22 @@ function renderAdminUserDetailPage(waId, options = {}) {
         </dl>
       </section>
 
+      <section class="panel" aria-labelledby="profil-title">
+        <div class="panel-head">
+          <h2 id="profil-title">${icon("users")}Profil & Kehamilan</h2>
+        </div>
+        <dl class="kv kv-3">
+          <div><dt>Usia Ibu</dt><dd id="profil-age">-</dd></div>
+          <div><dt>Kehamilan ke-</dt><dd id="profil-preg-num">-</dd></div>
+          <div><dt>HPHT</dt><dd id="profil-hpht">-</dd></div>
+          <div><dt>HPL</dt><dd id="profil-hpl">-</dd></div>
+          <div><dt>Usia kehamilan</dt><dd id="profil-gestational">-</dd></div>
+          <div><dt>Pengingat oleh</dt><dd id="profil-reminder-person">-</dd></div>
+          <div><dt>Rutin obat</dt><dd id="profil-routine-meds">-</dd></div>
+          <div><dt>Konsumsi teh</dt><dd id="profil-tea">-</dd></div>
+        </dl>
+      </section>
+
       <section class="panel" aria-labelledby="aksi-title">
         <div class="panel-head">
           <h2 id="aksi-title">${icon("sliders")}Tindakan operator</h2>
@@ -3144,6 +3178,14 @@ function renderAdminUserDetailPage(waId, options = {}) {
           const badgeNode = document.getElementById('status-badge');
           badgeNode.className = STATUS_TONE[user.status] || 'badge';
           badgeNode.textContent = STATUS_LABEL[user.status] || fmt(user.status);
+          document.getElementById('profil-age').textContent = user.age ? user.age + ' tahun' : '-';
+          document.getElementById('profil-preg-num').textContent = user.pregnancy_number ? 'Ke-' + user.pregnancy_number : '-';
+          document.getElementById('profil-hpht').textContent = fmt(user.hpht || user.hpht_iso);
+          document.getElementById('profil-hpl').textContent = fmt(user.hpl_iso);
+          document.getElementById('profil-gestational').textContent = user.gestational_week ? user.gestational_week + ' minggu' : '-';
+          document.getElementById('profil-reminder-person').textContent = fmt(user.reminder_person);
+          document.getElementById('profil-routine-meds').textContent = user.routine_meds === 1 ? 'Ya' : user.routine_meds === 0 ? 'Tidak' : '-';
+          document.getElementById('profil-tea').textContent = user.tea === 1 ? 'Ya' : user.tea === 0 ? 'Tidak' : '-';
           const deliveryRows = [
             ['Validasi HPL', user.delivery_hpl_response],
             ['Validasi HPL +3', user.delivery_hpl3_response],
@@ -4089,8 +4131,13 @@ function normalizeBirthWeightGram(input) {
   if (!raw) {
     return null;
   }
-  if (/\b(kg|kilogram|kilo)\b/.test(raw)) {
-    return null;
+  // Dukung masukan dalam kilogram (misal: "3.2 kg", "3,2 kg", "3 kg", "3.2", "3,2")
+  const kgMatch = raw.match(/^(\d+(?:[.,]\d+)?)\s*(?:kg|kilo(?:gram)?)?$/);
+  if (kgMatch && (raw.includes("kg") || raw.includes("kilo") || /^\d+[.,]\d+$/.test(raw) || (Number(raw) >= 1 && Number(raw) <= 6))) {
+    const val = Number(kgMatch[1].replace(",", "."));
+    if (Number.isFinite(val) && val >= 0.5 && val <= 6.0) {
+      return `${Math.round(val * 1000)} gram`;
+    }
   }
   const match = raw.match(/(\d[\d.,]*)/);
   if (!match || !match[1]) {
@@ -4101,7 +4148,7 @@ function normalizeBirthWeightGram(input) {
     return null;
   }
   const grams = Number(gramsText);
-  if (!Number.isFinite(grams) || grams <= 0) {
+  if (!Number.isFinite(grams) || grams < 500 || grams > 6000) {
     return null;
   }
   return `${Math.round(grams)} gram`;
@@ -4305,6 +4352,19 @@ function buildNeedsAction(users) {
       }
       if (status === "paused" || Number(user.allow_remindcare) === 0) {
         return { code: "paused", text: "Pengingat sedang dijeda", action: "Lanjutkan" };
+      }
+      if (status === "onboarding" && Number(user.is_admin) !== 1 && !user.reminder_time && user.created_at) {
+        const createdMs = new Date(user.created_at).getTime();
+        const nowMs = Date.now();
+        const hoursStuck = createdMs && !Number.isNaN(createdMs) ? (nowMs - createdMs) / (1000 * 60 * 60) : 0;
+        if (hoursStuck >= 24) {
+          const step = Number(user.onboarding_step || 1);
+          return {
+            code: "stuck_onboarding",
+            text: `Pendataan belum selesai > 24 jam (tahap ${step}/9)`,
+            action: "Hubungi lewat WhatsApp",
+          };
+        }
       }
       if (status === "active" && Number(user.is_admin) !== 1 && user.reminder_time) {
         const cutoff = toDateKey(nowWib().minus({ days: SILENT_USER_DAYS }));
@@ -4720,8 +4780,19 @@ async function getUserDetail(db, waId) {
      WHERE wa_id = ?`,
     [waId],
   );
+  const now = nowWib();
+  const hpht = user ? getHphtDate(user) : null;
+  const hpl = user ? getHplDate(user) : null;
+  const gestationalWeek = user ? getGestationalWeek(user, now) : null;
+
   return {
-    user,
+    user: user
+      ? {
+          ...user,
+          hpl_iso: hpl ? hpl.toISODate() : null,
+          gestational_week: gestationalWeek,
+        }
+      : null,
     totals: {
       total_sudah: totals && totals.total_sudah ? totals.total_sudah : 0,
       total_belum: totals && totals.total_belum ? totals.total_belum : 0,
@@ -4909,12 +4980,28 @@ function isGreeting(input) {
   if (!input) {
     return false;
   }
-  const normalized = input.trim().toLowerCase();
-  return /^(halo|hai|hi|hey|hei|assalamualaikum|salam)$/.test(normalized);
+  const normalized = input
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "");
+  return /^(halo|hai|hi|hey|hei|assalamualaikum|salam|p|pagi|siang|sore|malam|selamat\s+(pagi|siang|sore|malam))$/.test(
+    normalized,
+  );
 }
 
 function shouldSkipToday(reminderTime, now) {
-  const [hour, minute] = reminderTime.split(":").map(Number);
+  if (!reminderTime || typeof reminderTime !== "string") {
+    return false;
+  }
+  const parts = reminderTime.split(":");
+  if (parts.length < 2) {
+    return false;
+  }
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return false;
+  }
   const scheduled = now.set({ hour, minute, second: 0, millisecond: 0 });
   return now > scheduled;
 }
@@ -5921,6 +6008,23 @@ async function handleDeliveryDataAnswer(db, client, user, text) {
       return true;
     }
     updates[question.field] = weight;
+  } else if (question.field === "baby_gender") {
+    const lower = raw.toLowerCase();
+    let gender = null;
+    if (/^(l|laki|laki-laki|cowok|pria|lk)$/.test(lower) || lower.includes("laki")) {
+      gender = "Laki-laki";
+    } else if (/^(p|perempuan|cewek|wanita|pr)$/.test(lower) || lower.includes("perempuan")) {
+      gender = "Perempuan";
+    }
+    if (!gender) {
+      await sendText(
+        client,
+        user.wa_id,
+        "Pilih jenis kelamin bayi: *laki-laki* atau *perempuan* ya.",
+      );
+      return true;
+    }
+    updates.baby_gender = gender;
   } else {
     updates[question.field] = raw;
   }
@@ -6391,7 +6495,7 @@ async function handleCommand(db, client, user, text) {
     return true;
   }
 
-  if (/^(start|mulai)$/.test(normalized)) {
+  if (/^(start|mulai|lanjut|resume)$/.test(normalized)) {
     if (user.status === "completed") {
       await sendText(
         client,
@@ -6413,6 +6517,15 @@ async function handleCommand(db, client, user, text) {
         client,
         user.wa_id,
         `Pertanyaan 1 dari ${QUESTIONS.length}\n\n${QUESTIONS[0].text}`,
+      );
+      return true;
+    }
+    if (user.status === "onboarding") {
+      const currentStep = Math.max(1, Math.min(QUESTIONS.length, Number(user.onboarding_step) || 1));
+      await sendText(
+        client,
+        user.wa_id,
+        `Pertanyaan ${currentStep} dari ${QUESTIONS.length}\n\n${QUESTIONS[currentStep - 1].text}`,
       );
       return true;
     }
@@ -6438,8 +6551,8 @@ async function handleCommand(db, client, user, text) {
     return true;
   }
 
-  if (/^(ubah|set)\s+jam\b/.test(normalized) || /^jam\b/.test(normalized)) {
-    const match = normalized.match(/(?:ubah|set)?\s*jam\s*(.*)$/);
+  if (/^(ubah|set|ganti)\s+jam\b/.test(normalized) || /^jam\b/.test(normalized)) {
+    const match = normalized.match(/(?:ubah|set|ganti)?\s*jam\s*(.*)$/);
     const timeInput = match && match[1] ? match[1] : "";
     const time = normalizeTimeInput(timeInput);
     if (!time) {
@@ -6548,6 +6661,16 @@ async function handleMessage(db, client, msg) {
       );
     }
     return;
+  }
+
+  // Tandai pesan sudah dibaca dan kirim status mengetik sesaat agar pola interaksi alami
+  if (msg && typeof msg.getChat === "function") {
+    msg.getChat().then((chat) => {
+      if (chat) {
+        chat.sendSeen().catch(() => {});
+        chat.sendStateTyping().catch(() => {});
+      }
+    }).catch(() => {});
   }
 
   const identityIds = [waId, rawWaId].filter(Boolean);
@@ -6735,25 +6858,47 @@ async function handleMessage(db, client, msg) {
 }
 
 async function handleVoteUpdate(db, client, vote) {
-  const waId = vote.voter;
-  if (isUnsupportedDirectTarget(waId)) {
+  if (!vote) {
     return;
   }
-  const user = await getUser(db, waId);
+  const rawWaId = vote.voter ? String(vote.voter).trim() : "";
+  if (!rawWaId || isUnsupportedDirectTarget(rawWaId)) {
+    return;
+  }
+
+  // Voter bisa berupa identitas perangkat (@lid). Cari user asli lewat tabel alias.
+  const canonicalWaId = await getCanonicalWaId(db, rawWaId);
+  let user = await getUser(db, canonicalWaId);
+  if (!user && rawWaId !== canonicalWaId) {
+    user = await getUser(db, rawWaId);
+  }
+  if (!user && client && typeof client.getContactById === "function") {
+    try {
+      const contact = await client.getContactById(rawWaId);
+      const number = contact && contact.number ? contact.number : null;
+      if (number) {
+        const mapped = `${number}@c.us`;
+        await recordAlias(db, rawWaId, mapped);
+        user = await getUser(db, mapped);
+      }
+    } catch (_) {}
+  }
   if (!user) {
     return;
   }
+
+  const effectiveWaId = user.wa_id;
 
   if (user.is_blocked) {
     return;
   }
 
-  const rateCheck = checkRateLimit(waId);
+  const rateCheck = checkRateLimit(effectiveWaId);
   if (!rateCheck.allowed) {
     if (rateCheck.warn) {
       await sendText(
         client,
-        waId,
+        effectiveWaId,
         "Terlalu banyak pesan. Coba lagi sebentar. ⏳",
       );
     }
@@ -6764,40 +6909,93 @@ async function handleVoteUpdate(db, client, vote) {
     return;
   }
 
-  const pollMessageId =
-    vote.parentMessage && vote.parentMessage.id
-      ? vote.parentMessage.id._serialized
-      : null;
-
-  if (!vote.selectedOptions || vote.selectedOptions.length === 0) {
-    return;
+  // Ekstraksi poll message ID dari model parentMessage atau parentMsgKey
+  let pollMessageId = null;
+  if (vote.parentMessage && vote.parentMessage.id) {
+    pollMessageId = vote.parentMessage.id._serialized || sentMessageId(vote.parentMessage);
+  }
+  if (!pollMessageId && vote.parentMsgKey) {
+    if (vote.parentMsgKey._serialized) {
+      pollMessageId = String(vote.parentMsgKey._serialized);
+    } else if (vote.parentMsgKey.remote && vote.parentMsgKey.id) {
+      pollMessageId = `${vote.parentMsgKey.fromMe ? "true" : "false"}_${vote.parentMsgKey.remote}_${vote.parentMsgKey.id}`;
+    } else if (vote.parentMsgKey.id) {
+      pollMessageId = String(vote.parentMsgKey.id);
+    }
   }
 
-  const response = parsePollAnswer(vote.selectedOptions[0].name);
+  // Ekstraksi teks jawaban
+  // Jika parentMessage belum tercache di memori, opt.name bisa undefined.
+  // Dalam kondisi itu pakai localId (0 = opsi pertama "Sudah", 1 = opsi kedua "Belum").
+  let response = null;
+  if (Array.isArray(vote.selectedOptions) && vote.selectedOptions.length > 0) {
+    const opt = vote.selectedOptions[0];
+    if (opt && opt.name) {
+      response = parsePollAnswer(opt.name);
+    }
+    if (!response && opt && typeof opt.localId === "number") {
+      response = opt.localId === 0 ? "Sudah" : opt.localId === 1 ? "Belum" : null;
+    }
+  } else if (Array.isArray(vote.selectedOptionLocalIds) && vote.selectedOptionLocalIds.length > 0) {
+    const id = vote.selectedOptionLocalIds[0];
+    response = id === 0 ? "Sudah" : id === 1 ? "Belum" : null;
+  }
+
   if (!response) {
     return;
   }
 
-  if (
-    user.last_delivery_poll_message_id &&
-    pollMessageId &&
-    user.last_delivery_poll_message_id === pollMessageId
-  ) {
+  const isMatchingId = (savedId, candidateId) => {
+    if (!savedId || !candidateId) return false;
+    if (savedId === candidateId) return true;
+    const extractStanza = (val) => String(val).split("_").pop();
+    return extractStanza(savedId) === extractStanza(candidateId);
+  };
+
+  // 1. Validasi persalinan
+  const pendingDeliveryStage = getPendingDeliveryPollStage(user);
+  const isDeliveryPoll =
+    isMatchingId(user.last_delivery_poll_message_id, pollMessageId) ||
+    (!pollMessageId && pendingDeliveryStage);
+
+  if (isDeliveryPoll && pendingDeliveryStage) {
     await handleDeliveryValidationResponse(
       db,
       client,
       user,
       response,
-      getPendingDeliveryPollStage(user),
+      pendingDeliveryStage,
     );
     return;
   }
 
-  const postpartumLog = await getPostpartumVisitLogByPollMessageId(
-    db,
-    waId,
-    pollMessageId,
-  );
+  // 2. Kunjungan nifas
+  let postpartumLog = null;
+  if (pollMessageId) {
+    postpartumLog = await getPostpartumVisitLogByPollMessageId(
+      db,
+      effectiveWaId,
+      pollMessageId,
+    );
+    if (!postpartumLog) {
+      const stanzaId = String(pollMessageId).split("_").pop();
+      const row = await dbGet(
+        db,
+        `SELECT * FROM postpartum_visit_logs
+         WHERE wa_id = ? AND poll_message_id LIKE ?
+         ORDER BY id DESC LIMIT 1`,
+        [effectiveWaId, `%_${stanzaId}`],
+      );
+      if (row) postpartumLog = row;
+    }
+  }
+  if (!postpartumLog && isPostpartumMonitoringActive(user)) {
+    postpartumLog = await getLatestPendingPostpartumVisitLog(
+      db,
+      effectiveWaId,
+    );
+  }
+
   if (postpartumLog) {
     await handlePostpartumVisitResponse(
       db,
@@ -6809,15 +7007,15 @@ async function handleVoteUpdate(db, client, vote) {
     return;
   }
 
+  // 3. Pengingat FE harian
+  const today = toDateKey(nowWib());
   const isFePoll =
-    user.last_poll_message_id &&
-    pollMessageId &&
-    user.last_poll_message_id === pollMessageId;
-  if (!isFePoll) {
-    return;
-  }
+    isMatchingId(user.last_poll_message_id, pollMessageId) ||
+    (!isDeliveryPoll && user.last_reminder_date === today);
 
-  await handleDailyResponse(db, client, user, response);
+  if (isFePoll) {
+    await handleDailyResponse(db, client, user, response);
+  }
 }
 
 // Anggaran percobaan kirim per user per hari per jenis pengingat. Tanpa batas ini,
@@ -6979,6 +7177,28 @@ async function processUserReminderTick(db, client, user, now, today) {
     return;
   }
 
+  const deliveryAt = getDeliveryDateTime(user);
+  const daysSinceDelivery = deliveryAt
+    ? Math.floor(now.startOf("day").diff(deliveryAt.startOf("day"), "days").days)
+    : null;
+  if (
+    deliveryConfirmed &&
+    !collectingDeliveryData &&
+    daysSinceDelivery !== null &&
+    daysSinceDelivery > 42
+  ) {
+    await updateUser(db, user.wa_id, {
+      status: "completed",
+      allow_remindcare: 0,
+    });
+    await sendText(
+      client,
+      user.wa_id,
+      "Masa pemantauan nifas 42 hari sudah selesai. Program bundacare untuk kehamilan ini telah tuntas. Terima kasih sudah merawat diri dan buah hati bersama kami. 🤍👶",
+    );
+    return;
+  }
+
   if (
     !isPregnancyActive(user, now) &&
     !postpartumActive &&
@@ -6995,6 +7215,21 @@ async function processUserReminderTick(db, client, user, now, today) {
       "Masa pengingat kehamilan sudah selesai. Jika ingin lanjut, balas start.",
     );
     return;
+  }
+
+  if (
+    !isPregnancyActive(user, now) &&
+    !postpartumActive &&
+    !deliveryConfirmed &&
+    !collectingDeliveryData
+  ) {
+    const gestationalWeek = getGestationalWeek(user, now);
+    if (gestationalWeek && gestationalWeek > 42) {
+      sendAlert(
+        "kehamilan-lewat-waktu",
+        `Pasien ${user.wa_id} (${user.name || "tanpa nama"}) usia kehamilan minggu ke-${gestationalWeek} belum konfirmasi persalinan.`,
+      );
+    }
   }
 
   await sendLaborPhaseMessage(db, client, user, now);
@@ -7657,7 +7892,15 @@ async function startAdminServer(db) {
     const origin = String(req.headers.origin || "");
     const referer = String(req.headers.referer || "");
     const host = String(req.headers.host || "");
-    const fromPanel = (!origin && !referer) || [origin, referer].some((value) => value && value.includes(host));
+    const checkHost = (val) => {
+      if (!val) return false;
+      try {
+        return new URL(val).host === host;
+      } catch (_) {
+        return false;
+      }
+    };
+    const fromPanel = (!origin && !referer) || checkHost(origin) || checkHost(referer);
     if (!fromPanel) {
       res.status(403).send(
         renderAdminLoginPage("Permintaan masuk harus dari halaman panel.", {
@@ -8414,6 +8657,9 @@ async function main() {
       args: [
         ...puppeteerArgs,
         "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--no-first-run",
+        "--no-default-browser-check",
         "--lang=id-ID",
         "--window-size=1280,900",
       ],
@@ -8508,6 +8754,23 @@ async function main() {
       await handleMessage(db, client, msg);
     } catch (err) {
       console.error("Gagal memproses pesan:", err);
+    }
+  });
+
+  client.on("incoming_call", async (call) => {
+    try {
+      if (call && typeof call.reject === "function") {
+        await call.reject();
+      }
+      if (call && call.from && !call.fromMe && !call.isGroup) {
+        await sendText(
+          client,
+          call.from,
+          "Halo, nomor bundacare adalah asisten pengingat otomatis dan belum dapat menerima panggilan telepon. Silakan kirim pesan teks ya. 🤍",
+        );
+      }
+    } catch (err) {
+      console.warn("Gagal menangani panggilan masuk:", (err && err.message) || err);
     }
   });
 
@@ -8637,7 +8900,9 @@ module.exports = {
   getWeeklyAdherence,
   buildWeeklyDigest,
   __handleMessageForTest: handleMessage,
+  __handleVoteUpdateForTest: handleVoteUpdate,
   __handleAdminCommandForTest: handleAdminCommand,
+  normalizeBirthWeightGram,
   __setSendReadyForTest: (value) => {
     clientReady = Boolean(value);
     sendGuard.setReady(Boolean(value));
