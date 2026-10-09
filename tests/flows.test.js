@@ -120,7 +120,7 @@ async function run2() {
   await run(
     db,
     `INSERT OR REPLACE INTO users (wa_id, name, status, onboarding_step, is_admin, is_allowed,
-      is_blocked, allow_bundacare, reminder_time, created_at, updated_at)
+      is_blocked, allow_remindcare, reminder_time, created_at, updated_at)
      VALUES (?, 'Admin', 'active', 0, 1, 1, 0, 1, '10:30', ?, ?)`,
     [ADMIN, nowIso, nowIso],
   );
@@ -192,18 +192,18 @@ async function run2() {
   await test("admin unblock menyalakan lagi pengingatnya", async () => {
     await run(
       db,
-      "UPDATE users SET is_blocked = 1, allow_bundacare = 0, status = 'paused' WHERE wa_id = ?",
+      "UPDATE users SET is_blocked = 1, allow_remindcare = 0, status = 'paused' WHERE wa_id = ?",
       ["628777000111@c.us"],
     );
     sent.length = 0;
     await mod.__handleAdminCommandForTest(db, client, adminRow, "admin unblock 628777000111");
     const row = await get(
       db,
-      "SELECT is_blocked, allow_bundacare, status FROM users WHERE wa_id = ?",
+      "SELECT is_blocked, allow_remindcare, status FROM users WHERE wa_id = ?",
       ["628777000111@c.us"],
     );
     assert.strictEqual(Number(row.is_blocked), 0);
-    assert.strictEqual(Number(row.allow_bundacare), 1);
+    assert.strictEqual(Number(row.allow_remindcare), 1);
     assert.strictEqual(row.status, "active");
   });
 
@@ -230,7 +230,7 @@ async function run2() {
       await run(
         db,
         `INSERT OR REPLACE INTO users (wa_id, name, status, onboarding_step, is_admin, is_allowed,
-          is_blocked, allow_bundacare, reminder_time, created_at, updated_at)
+          is_blocked, allow_remindcare, reminder_time, created_at, updated_at)
          VALUES (?, 'Pasien Uji', 'active', 9, 0, 1, 0, 1, '19:00', ?, ?)`,
         [wa, nowIso, nowIso],
       );
@@ -304,7 +304,7 @@ async function run2() {
     await run(
       db,
       `INSERT OR REPLACE INTO users (wa_id, name, status, onboarding_step, is_admin, is_allowed,
-        is_blocked, allow_bundacare, created_at, updated_at)
+        is_blocked, allow_remindcare, created_at, updated_at)
        VALUES (?, NULL, 'onboarding', 2, 0, 1, 0, 0, ?, ?)`,
       ["6285700000001@c.us", lama, lama],
     );
@@ -332,7 +332,7 @@ async function run2() {
         wa_id: "6285711112222@c.us",
         status: "active",
         reminder_time: "19:00",
-        allow_bundacare: 1,
+        allow_remindcare: 1,
         last_reminder_date: "2026-09-20",
         last_response_date: "2026-09-21",
       },
@@ -345,7 +345,7 @@ async function run2() {
         wa_id: "6285711113333@c.us",
         status: "active",
         reminder_time: "19:00",
-        allow_bundacare: 1,
+        allow_remindcare: 1,
         last_reminder_date: hariIni,
         last_response_date: hariIni,
       },
@@ -357,7 +357,7 @@ async function run2() {
         wa_id: "6285711114444@c.us",
         status: "active",
         reminder_time: "19:00",
-        allow_bundacare: 1,
+        allow_remindcare: 1,
         last_reminder_date: hariIni,
         last_response_date: null,
         first_reminder_date: hariIni,
@@ -370,7 +370,7 @@ async function run2() {
         wa_id: "6282240269818@c.us",
         status: "active",
         reminder_time: "10:30",
-        allow_bundacare: 1,
+        allow_remindcare: 1,
         is_admin: 1,
         last_reminder_date: "2026-09-20",
         last_response_date: "2026-09-01",
@@ -388,7 +388,7 @@ async function run2() {
     try {
       await run(
         db,
-        `UPDATE users SET status = 'active', allow_bundacare = 1, reminder_time = '19:00',
+        `UPDATE users SET status = 'active', allow_remindcare = 1, reminder_time = '19:00',
           last_reminder_date = '2026-09-20'
          WHERE wa_id = ?`,
         [PATIENT],
@@ -404,7 +404,7 @@ async function run2() {
       await run(
         db,
         `INSERT OR REPLACE INTO users (wa_id, name, status, onboarding_step, is_admin, is_allowed,
-          is_blocked, allow_bundacare, reminder_time, last_reminder_date, created_at, updated_at)
+          is_blocked, allow_remindcare, reminder_time, last_reminder_date, created_at, updated_at)
          VALUES ('6285700000002@c.us', 'Pasien Baru', 'active', 9, 0, 1, 0, 1, '19:00', ?, ?, ?)`,
         [wibDay(1), nowIso, nowIso],
       );

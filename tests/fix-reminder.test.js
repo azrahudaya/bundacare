@@ -236,11 +236,11 @@ async function run() {
     try {
       await mod.ensureSettingsTable(db);
       await new Promise((resolve, reject) => db.run(
-        "CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, status TEXT, reminder_time TEXT, allow_bundacare INTEGER, is_blocked INTEGER)",
+        "CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, status TEXT, reminder_time TEXT, allow_remindcare INTEGER, is_blocked INTEGER)",
         (err) => (err ? reject(err) : resolve()),
       ));
       const insert = (wa, status, time, allow, blocked) => new Promise((resolve, reject) => db.run(
-        "INSERT INTO users (wa_id, status, reminder_time, allow_bundacare, is_blocked) VALUES (?,?,?,?,?)",
+        "INSERT INTO users (wa_id, status, reminder_time, allow_remindcare, is_blocked) VALUES (?,?,?,?,?)",
         [wa, status, time, allow, blocked], (err) => (err ? reject(err) : resolve()),
       ));
       await insert("jam-terisi@c.us", "onboarding", "10:30", 1, 0);
