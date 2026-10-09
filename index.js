@@ -159,36 +159,99 @@ const processedMessageIds = new Map();
 const PROCESSED_MESSAGE_TTL_MS = 5 * 60 * 1000;
 
 const QUESTIONS = [
-  { field: "name", text: "Halo, aku bundacare. Boleh tahu nama Ibu? \u{1F60A}" },
-  { field: "age", text: "Usia berapa? 🎂" },
-  { field: "pregnancy_number", text: "Kehamilan ke berapa? 🤰" },
+  {
+    field: "name",
+    text: "Halo, aku bundacare. Boleh tahu nama Ibu? \u{1F60A}",
+    variants: [
+      "Halo, aku bundacare. Boleh tahu nama Ibu? \u{1F60A}",
+      "Halo Bu, kenalkan aku bundacare. Nama panggilannya siapa ya? 🌸",
+      "Salam kenal dari bundacare. Boleh tahu nama Ibu? ✨",
+      "Hai Bu, aku bundacare. Kalau boleh tahu, nama Ibu siapa ya? 🤍",
+    ],
+  },
+  {
+    field: "age",
+    text: "Usia berapa? 🎂",
+    variants: [
+      "Usia berapa? 🎂",
+      "Saat ini usia Ibu berapa tahun ya? 🎂",
+      "Boleh tahu berapa usia Ibu saat ini? 🎈",
+      "Usia Ibu sekarang berapa tahun? 🌸",
+    ],
+  },
+  {
+    field: "pregnancy_number",
+    text: "Kehamilan ke berapa? 🤰",
+    variants: [
+      "Kehamilan ke berapa? 🤰",
+      "Sekarang sedang mengandung anak ke berapa Bu? 🤰",
+      "Ini merupakan kehamilan yang ke berapa bagi Ibu? 👶",
+      "Sedang hamil anak ke berapa saat ini, Bu? 🤍",
+    ],
+  },
   {
     field: "hpht",
     text: "HPHT (Hari Pertama Haid Terakhir) kapan? Format tanggal-bulan-tahun, contoh: 31-01-2024 📅",
+    variants: [
+      "HPHT (Hari Pertama Haid Terakhir) kapan? Format tanggal-bulan-tahun, contoh: 31-01-2024 📅",
+      "Kapan hari pertama haid terakhir (HPHT) Ibu? Format tanggal-bulan-tahun ya, contoh: 31-01-2024 📅",
+      "Boleh tahu tanggal HPHT Ibu? Tulis dengan format tanggal-bulan-tahun, contoh: 31-01-2024 🗓️",
+      "Tanggal HPHT kapan Bu? Format penulisan: tanggal-bulan-tahun, contoh: 31-01-2024 📅",
+    ],
   },
   {
     field: "routine_meds",
     text: "Apakah rutin mengkonsumsi obat? (ya/tidak) 💊",
     type: "yesno",
+    variants: [
+      "Apakah rutin mengkonsumsi obat? (ya/tidak) 💊",
+      "Apakah Ibu saat ini rutin minum obat dari dokter atau bidan? (ya/tidak) 💊",
+      "Ibu ada minum obat atau vitamin secara rutin saat ini? (ya/tidak) 💊",
+      "Apakah sedang rutin mengonsumsi obat-obatan tertentu? (ya/tidak) 💊",
+    ],
   },
   {
     field: "tea",
     text: "Masih mengkonsumsi teh? (ya/tidak) 🍵",
     type: "yesno",
+    variants: [
+      "Masih mengkonsumsi teh? (ya/tidak) 🍵",
+      "Apakah Ibu masih suka atau rutin minum teh? (ya/tidak) 🍵",
+      "Sehari-hari masih sering minum teh tidak Bu? (ya/tidak) 🍵",
+      "Masih mengonsumsi teh dalam keseharian? (ya/tidak) 🍵",
+    ],
   },
   {
     field: "reminder_person",
     text: "Siapa yang biasanya mengingatkan Ibu untuk minum obat? \u{1F465}",
+    variants: [
+      "Siapa yang biasanya mengingatkan Ibu untuk minum obat? \u{1F465}",
+      "Biasanya siapa yang suka mengingatkan Ibu buat minum obat? (misal: suami, ibu, atau sendiri) 👥",
+      "Di rumah, siapa yang biasanya mengingatkan Ibu agar tidak lupa minum obat? 🤍",
+      "Siapa yang paling sering mengingatkan Ibu minum obat sehari-hari? 👥",
+    ],
   },
   {
     field: "allow_remindcare",
     text: "Mau diingatkan bundacare untuk minum obat? (ya/tidak) 🔔",
     type: "yesno",
+    variants: [
+      "Mau diingatkan bundacare untuk minum obat? (ya/tidak) 🔔",
+      "Apakah Ibu berkenan kalau bundacare bantu ingatkan jadwal minum obat tiap hari? (ya/tidak) 🔔",
+      "Boleh bundacare temani dan ingatkan jadwal minum obat harian Ibu? (ya/tidak) 🔔",
+      "Mau dibantu diingatkan minum obat setiap hari oleh bundacare? (ya/tidak) 🔔",
+    ],
   },
   {
     field: "reminder_time",
     text: "bundacare bakal mengingatkan tiap hari lewat WhatsApp. Mau diingatkan setiap jam berapa? (format 24 jam, contoh 17:00) ⏰",
     type: "time",
+    variants: [
+      "bundacare bakal mengingatkan tiap hari lewat WhatsApp. Mau diingatkan setiap jam berapa? (format 24 jam, contoh 17:00) ⏰",
+      "bundacare siap ingatkan setiap hari. Mau dijadwalkan jam berapa Bu? (format 24 jam, contoh: 19:00) ⏰",
+      "Kira-kira paling nyaman diingatkan jam berapa setiap harinya? (format 24 jam, contoh: 20:00) ⏰",
+      "Mau dikirimi pengingat jam berapa setiap hari Bu? (format 24 jam, contoh: 18:30) ⏰",
+    ],
   },
 ];
 
@@ -197,39 +260,90 @@ const DELIVERY_QUESTIONS = [
     field: "delivery_date",
     text: "Tanggal melahirkan kapan? (contoh: 31-01-2026)",
     type: "date",
+    variants: [
+      "Tanggal melahirkan kapan? (contoh: 31-01-2026)",
+      "Kapan tanggal persalinannya Bu? (format tanggal-bulan-tahun, contoh: 31-01-2026)",
+      "Boleh tahu tanggal berapa si kecil lahir? (contoh: 31-01-2026)",
+    ],
   },
   {
     field: "delivery_time",
     text: "Jam melahirkan pukul berapa? (format 24 jam, contoh: 14:30)",
     type: "time",
+    variants: [
+      "Jam melahirkan pukul berapa? (format 24 jam, contoh: 14:30)",
+      "Pukul berapa si kecil lahir Bu? (format 24 jam, contoh: 09:15)",
+      "Jam berapa persalinannya berlangsung? (format 24 jam, contoh: 14:30)",
+    ],
   },
   {
     field: "delivery_place",
     text: "Tempat melahirkan di mana? (rumah/puskesmas/klinik/rumah sakit)",
+    variants: [
+      "Tempat melahirkan di mana? (rumah/puskesmas/klinik/rumah sakit)",
+      "Di mana tempat persalinan kemarin Bu? (contoh: puskesmas, klinik, RS, atau rumah)",
+      "Persalinan berlangsung di mana? (puskesmas/klinik/rumah sakit/rumah)",
+    ],
   },
   {
     field: "delivery_birth_attendant",
     text: "Siapa penolong persalinannya? (contoh: bidan/dokter)",
+    variants: [
+      "Siapa penolong persalinannya? (contoh: bidan/dokter)",
+      "Kemarin ditolong oleh siapa saat melahirkan Bu? (contoh: bidan/dokter)",
+      "Siapa tenaga kesehatan yang menolong persalinan? (bidan/dokter)",
+    ],
   },
   {
     field: "delivery_with_complication",
     text: "Apakah persalinan dengan penyulit? (ya/tidak)",
     type: "yesno",
+    variants: [
+      "Apakah persalinan dengan penyulit? (ya/tidak)",
+      "Apakah saat persalinan kemarin ada komplikasi atau penyulit? (ya/tidak)",
+      "Apakah persalinan kemarin disertai penyulit? (ya/tidak)",
+    ],
   },
   {
     field: "baby_gender",
     text: "Jenis kelamin bayi apa? (laki-laki/perempuan)",
+    variants: [
+      "Jenis kelamin bayi apa? (laki-laki/perempuan)",
+      "Si kecil laki-laki atau perempuan Bu? (laki-laki/perempuan)",
+      "Apa jenis kelamin adik bayi? (laki-laki/perempuan)",
+    ],
   },
   {
     field: "baby_birth_weight",
     text: "Berat badan bayi saat lahir berapa gram? (contoh: 3200 gram)",
     type: "weight_gram",
+    variants: [
+      "Berat badan bayi saat lahir berapa gram? (contoh: 3200 gram)",
+      "Berapa berat badan lahir si kecil Bu? (contoh: 3200 gram atau 3.2 kg)",
+      "Berapa berat lahir bayi dalam gram? (contoh: 3100 gram)",
+    ],
   },
   {
     field: "mother_current_complaint",
     text: "Apakah ada keluhan Ibu saat ini? (jika tidak ada, tulis: tidak ada)",
+    variants: [
+      "Apakah ada keluhan Ibu saat ini? (jika tidak ada, tulis: tidak ada)",
+      "Bagaimana kondisi Ibu saat ini, apakah ada keluhan? (jika tidak ada, tulis: tidak ada)",
+      "Ada keluhan fisik atau rasa tidak nyaman saat ini Bu? (tulis keluhan atau 'tidak ada')",
+    ],
   },
 ];
+
+function getQuestionText(question, user = null) {
+  if (!question) {
+    return "";
+  }
+  if (Array.isArray(question.variants) && question.variants.length > 0) {
+    const idx = Math.floor(Math.random() * question.variants.length);
+    return question.variants[idx];
+  }
+  return question.text || "";
+}
 
 const LABOR_PHASE_MESSAGES = {
   37: "Minggu ke-37: Ini fase awal aterm. Tetap tenang, istirahat cukup, dan perhatikan kontraksi teratur.",
@@ -1718,10 +1832,11 @@ function sendText(client, chatId, text, sendOptions = {}) {
     console.warn("Lewati kirim pesan ke target non-user:", chatId);
     return null;
   }
+  const kind = sendOptions.kind || "reply";
   return sendGuard.send(
     () => deliverMessage(resolved, chatId, text, sendOptions.alternates),
     {
-      kind: sendOptions.kind,
+      kind,
       label: chatId,
       preview: previewOf(text),
     },
@@ -5427,7 +5542,7 @@ async function sendReminderText(db, client, user, text, dateKey, now, flow = "re
     return null;
   }
   markFlowAttempt(user.wa_id, flow);
-  const sent = await sendText(client, user.wa_id, text);
+  const sent = await sendText(client, user.wa_id, text, { kind: "broadcast" });
   if (!sent) {
     return null;
   }
@@ -5486,7 +5601,7 @@ async function sendPostpartumVisitReminder(
 
   if (!visitLog || !visitLog.reminder_text_sent_at) {
     const reminderText = buildPostpartumVisitMessage(user, visit);
-    const textSent = await sendText(client, user.wa_id, reminderText);
+    const textSent = await sendText(client, user.wa_id, reminderText, { kind: "broadcast" });
     if (textSent) {
       await markPostpartumVisitTextSent(db, user.wa_id, visit.code);
     }
@@ -5864,7 +5979,7 @@ async function startDeliveryDataCollection(db, client, user) {
     delivery_data_completed_at: null,
     postpartum_education_sent_at: null,
   });
-  await sendText(client, user.wa_id, DELIVERY_QUESTIONS[0].text);
+  await sendText(client, user.wa_id, getQuestionText(DELIVERY_QUESTIONS[0], user));
 }
 
 async function handleDeliveryValidationResponse(
@@ -6053,7 +6168,11 @@ async function handleDeliveryDataAnswer(db, client, user, text) {
     ...updates,
     delivery_data_step: nextStep,
   });
-  await sendText(client, user.wa_id, DELIVERY_QUESTIONS[nextStep - 1].text);
+  await sendText(
+    client,
+    user.wa_id,
+    getQuestionText(DELIVERY_QUESTIONS[nextStep - 1], user),
+  );
   return true;
 }
 
@@ -6271,7 +6390,7 @@ async function handleOnboardingAnswer(db, client, user, text) {
   await sendText(
     client,
     user.wa_id,
-    `Pertanyaan ${nextStep} dari ${QUESTIONS.length}\n\n${QUESTIONS[nextStep - 1].text}`,
+    `Pertanyaan ${nextStep} dari ${QUESTIONS.length}\n\n${getQuestionText(QUESTIONS[nextStep - 1], user)}`,
   );
 }
 
@@ -6418,7 +6537,7 @@ async function handleCommand(db, client, user, text) {
       user.wa_id,
       "Baik, data direset. Kita isi ulang dari awal ya.",
     );
-    await sendText(client, user.wa_id, QUESTIONS[0].text);
+    await sendText(client, user.wa_id, getQuestionText(QUESTIONS[0], user));
     return true;
   }
 
@@ -6515,7 +6634,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        `Pertanyaan 1 dari ${QUESTIONS.length}\n\n${QUESTIONS[0].text}`,
+        `Pertanyaan 1 dari ${QUESTIONS.length}\n\n${getQuestionText(QUESTIONS[0], user)}`,
       );
       return true;
     }
@@ -6524,7 +6643,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        `Pertanyaan ${currentStep} dari ${QUESTIONS.length}\n\n${QUESTIONS[currentStep - 1].text}`,
+        `Pertanyaan ${currentStep} dari ${QUESTIONS.length}\n\n${getQuestionText(QUESTIONS[currentStep - 1], user)}`,
       );
       return true;
     }
@@ -6534,7 +6653,7 @@ async function handleCommand(db, client, user, text) {
         status: "onboarding",
         onboarding_step: 9,
       });
-      await sendText(client, user.wa_id, QUESTIONS[8].text);
+      await sendText(client, user.wa_id, getQuestionText(QUESTIONS[8], user));
       return true;
     }
 
@@ -6738,7 +6857,7 @@ async function handleMessage(db, client, msg) {
     await sendText(
       client,
       waId,
-      `Pertanyaan 1 dari ${QUESTIONS.length}\n\n${QUESTIONS[0].text}`,
+      `Pertanyaan 1 dari ${QUESTIONS.length}\n\n${getQuestionText(QUESTIONS[0], { wa_id: waId })}`,
     );
     return;
   }
