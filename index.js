@@ -514,7 +514,14 @@ async function getCanonicalWaId(db, waId) {
   if (!waId) {
     return waId;
   }
-  const row = await dbGet(db, "SELECT canonical FROM user_aliases WHERE alias = ?", [waId]);
+  const prefix = String(waId).split("@")[0];
+  const lidVariant = `${prefix}@lid`;
+  const cusVariant = `${prefix}@c.us`;
+  const row = await dbGet(
+    db,
+    "SELECT canonical FROM user_aliases WHERE alias = ? OR alias = ? OR alias = ? LIMIT 1",
+    [waId, lidVariant, cusVariant],
+  );
   return row && row.canonical ? row.canonical : waId;
 }
 
@@ -1654,17 +1661,9 @@ function chatIdCandidates(chatId, alternates) {
       merged.push(item);
     }
   }
-  alternates = merged;
   const list = [chatId];
-  for (const alt of Array.isArray(alternates) ? alternates : []) {
+  for (const alt of merged) {
     if (typeof alt === "string" && alt && !list.includes(alt)) {
-      // @lid hanyalah identitas perangkat sementara untuk chat yang sama. Kalau
-      // target utama sudah @c.us (nomor asli), kirim ke @lid akan menghasilkan
-      // pesan dobel. @lid hanya dipakai sebagai cadangan saat target utama adalah
-      // @lid (fallback ke nomor asli).
-      if (chatId.endsWith("@c.us") && alt.endsWith("@lid")) {
-        continue;
-      }
       list.push(alt);
     }
   }
