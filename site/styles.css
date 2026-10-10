@@ -1,7 +1,7 @@
 /* Bundacare landing — warm, bold, simple */
 @font-face {
   font-family: "Bricolage Grotesque";
-  src: url("/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+  src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2");
   font-weight: 700 800;
   font-style: normal;
   font-display: swap;
@@ -9,7 +9,7 @@
 
 @font-face {
   font-family: "Plus Jakarta Sans";
-  src: url("/fonts/plus-jakarta-sans-latin.woff2") format("woff2");
+  src: url("fonts/plus-jakarta-sans-latin.woff2") format("woff2");
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;

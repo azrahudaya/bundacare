@@ -1,5 +1,8 @@
 "use strict";
 
+// Dibungkus IIFE: `return` di top-level tidak sah di browser dan membuat seluruh
+// skrip gagal di-parse (form tidak pernah aktif). Di Node ini lolos, di browser tidak.
+(function () {
 // Landing page bisa di-host di origin berbeda dari API bot (GitHub Pages + backend VPS).
 // Semua panggilan API lewat helper ini supaya base URL diatur di satu tempat.
 const API_BASE = (window.BUNDACARE_API_BASE || "").replace(/\/+$/, "");
@@ -182,3 +185,4 @@ try {
 } catch (_) { sessionStorage.removeItem(pendingKey); }
 
 if (!restored) checkAvailability();
+})();
