@@ -1,5 +1,5 @@
 [Unit]
-Description=Jalankan penjaga pregnancy-reminder-bot tiap 5 menit
+Description=Jalankan penjaga bundacare tiap 5 menit
 Documentation=file:/opt/bundacare/deploy/INSTALL.md
 
 [Timer]

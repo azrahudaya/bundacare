@@ -12,6 +12,7 @@ Group=ubuntu
 WorkingDirectory=/opt/bundacare
 EnvironmentFile=-/opt/bundacare/.env
 Environment=NODE_ENV=production
+Environment=HOME=/home/ubuntu
 ExecStart=/usr/bin/node /opt/bundacare/scripts/watchdog.js
 # Penjaga hanya membaca berkas dan mengirim HTTP keluar.
 ProtectSystem=strict

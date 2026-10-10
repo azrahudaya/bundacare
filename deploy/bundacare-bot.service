@@ -1,5 +1,5 @@
 [Unit]
-Description=pregnancy-reminder-bot WhatsApp Bot
+Description=bundacare WhatsApp Bot
 Documentation=file:/opt/bundacare/README.md
 After=network-online.target
 Wants=network-online.target
@@ -12,6 +12,9 @@ WorkingDirectory=/opt/bundacare
 # File .env dibaca kalau ada. Isi dari .env.example.
 EnvironmentFile=-/opt/bundacare/.env
 Environment=NODE_ENV=production
+# systemd tidak menetapkan HOME untuk service; Chrome butuh HOME yang bisa ditulis
+# untuk profil dan crashpad, kalau tidak Chrome gagal start.
+Environment=HOME=/home/ubuntu
 ExecStart=/usr/bin/node index.js
 # Bot mengirim pesan ke pasien: selalu hidupkan lagi kalau mati, tapi jangan berputar
 # terlalu cepat saat sesi WhatsApp bermasalah (pemindaian QR berulang itu sinyal).
@@ -29,7 +32,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 MemoryMax=1500M
 # Tanda minus di depan path berarti abaikan kalau direktorinya belum ada.
-ReadWritePaths=-/opt/bundacare/data -/opt/bundacare/.wwebjs_auth -/opt/bundacare/.wwebjs_cache -/opt/bundacare/.config -/home/bundacare/.cache -/home/bundacare/.config
+ReadWritePaths=-/opt/bundacare/data -/opt/bundacare/.wwebjs_auth -/opt/bundacare/.wwebjs_cache -/opt/bundacare/.config -/home/ubuntu/.cache -/home/ubuntu/.config
 # Beri waktu shutdown rapi (menutup DB dan melepas lock instance).
 KillSignal=SIGTERM
 TimeoutStopSec=60
