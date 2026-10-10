@@ -8,6 +8,7 @@ const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const { DateTime } = require("luxon");
 const qrcode = require("qrcode-terminal");
+const QRCode = require("qrcode");
 const { Client, LocalAuth, Poll } = require("whatsapp-web.js");
 const { createSendGuard } = require("./lib/send-guard");
 const { renderAdminSettingsPage } = require("./lib/admin-settings-page");
@@ -141,6 +142,10 @@ const sendGuard = createSendGuard({
 });
 let activeClient = null;
 let clientReady = false;
+// QR WhatsApp terbaru (data URL) supaya panel admin bisa menampilkan untuk ditautkan
+// tanpa perlu membaca terminal lewat SSH. Dikosongkan begitu sesi tersambung.
+let latestQrDataUrl = "";
+let latestQrAt = null;
 let lastClientReadyAt = null;
 let lastDisconnectedAt = null;
 let lastDisconnectReason = null;
@@ -2459,6 +2464,21 @@ function renderAdminDashboardPage(options = {}) {
         <p class="note" id="status-note" role="status" aria-live="polite" style="padding:0 12px 12px;margin:0" hidden></p>
       </section>
 
+      <section class="panel" id="qr-panel" aria-labelledby="qr-title" hidden>
+        <div class="panel-head">
+          <h2 id="qr-title">${icon("link")}Tautkan WhatsApp</h2>
+          <span class="badge badge-warn" id="qr-badge">belum tersambung</span>
+        </div>
+        <div class="panel-body" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+          <img id="qr-img" alt="Kode QR untuk menautkan WhatsApp" width="240" height="240" style="border:1px solid var(--line);border-radius:var(--r-2);background:#fff;padding:8px">
+          <div style="flex:1 1 240px;min-width:200px">
+            <p style="margin:0 0 8px">Buka WhatsApp di ponsel bot, pilih <strong>Perangkat tertaut</strong>, lalu <strong>Tautkan perangkat</strong> dan pindai kode ini.</p>
+            <p class="muted" id="qr-note" style="margin:0 0 10px"></p>
+            <button type="button" class="btn" id="qr-refresh">${icon("refresh")}Muat ulang QR</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="action-title">
         <div class="panel-head">
           <h2 id="action-title">${icon("alert")}Perlu tindakan</h2>
@@ -3137,6 +3157,33 @@ function renderAdminDashboardPage(options = {}) {
           return { ok: false, error: err.message };
         }
       }
+      async function loadQr() {
+        const panel = document.getElementById('qr-panel');
+        try {
+          const d = await fetchJson('/admin/api/qr');
+          if (d.connected) { panel.hidden = true; return; }
+          panel.hidden = false;
+          const img = document.getElementById('qr-img');
+          const badge = document.getElementById('qr-badge');
+          const note = document.getElementById('qr-note');
+          if (d.qr) {
+            img.src = d.qr;
+            img.hidden = false;
+            badge.className = 'badge badge-warn';
+            badge.textContent = 'menunggu dipindai';
+            note.textContent = d.qrAt ? 'Diperbarui ' + fmtDt(d.qrAt) + '. QR lama tidak berlaku.' : '';
+          } else {
+            img.hidden = true;
+            badge.className = 'badge';
+            badge.textContent = 'menyiapkan QR';
+            note.textContent = 'QR belum tersedia. Tunggu sebentar lalu klik Muat ulang QR.';
+          }
+        } catch (err) {
+          panel.hidden = false;
+          document.getElementById('qr-badge').textContent = 'gagal memuat';
+          document.getElementById('qr-note').textContent = 'Tidak dapat memuat QR: ' + err.message;
+        }
+      }
       async function loadAll(withToast) {
         const btn = document.getElementById('refresh-btn');
         const banner = document.getElementById('error-banner');
@@ -3148,6 +3195,7 @@ function renderAdminDashboardPage(options = {}) {
           guard('users-note', async () => { const d = await fetchJson('/admin/api/users'); usersCache = d.users || []; renderUsers(); }),
           guard('logs-note', async () => { const d = await fetchJson('/admin/api/logs'); logsCache = d.logs || []; renderLogs(); }),
           guard('access-status', async () => { const d = await fetchJson('/admin/api/allowlist'); accessCache = { panel: d.panel || [], env: d.env || [] }; renderAccess(); }),
+          guard('qr-note', async () => { await loadQr(); }),
         ]);
         if (!results[1].ok) {
           // Tanpa ini panel Perlu tindakan berhenti di "Memuat." tanpa sebab yang terlihat.
@@ -3210,6 +3258,7 @@ function renderAdminDashboardPage(options = {}) {
         });
       }
       document.getElementById('refresh-btn').addEventListener('click', () => loadAll(true));
+      document.getElementById('qr-refresh').addEventListener('click', () => loadQr());
       document.getElementById('error-retry').addEventListener('click', () => loadAll(true));
       document.getElementById('logs-toggle').addEventListener('click', () => { logsOpen = !logsOpen; renderLogs(); });
       for (const btn of document.querySelectorAll('.phase-filter')) {
@@ -8181,7 +8230,9 @@ async function startAdminServer(db) {
   };
 
   registerRoutes(app, db, { requireAdmin, requireCsrf });
-  app.use(express.static(path.join(__dirname, "site"), { index: "index.html", fallthrough: true }));
+  // Landing TIDAK disajikan bot. Landing ada di domain sendiri (bundacare.site),
+  // sedangkan bot hanya melayani API registrasi dan panel admin. Sebelumnya
+  // express.static di sini membuat api.bundacare.site menampilkan landing page.
 
   app.get("/admin/login", (req, res) => {
     const expired = String(req.query.expired || "") === "1";
@@ -8338,6 +8389,16 @@ async function startAdminServer(db) {
     }
   });
 
+  app.get("/admin/api/qr", requireAdmin, (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json({
+      ok: true,
+      connected: clientReady === true,
+      qr: clientReady ? "" : latestQrDataUrl,
+      qrAt: latestQrAt,
+    });
+  });
+
   app.get("/admin/api/health", requireAdmin, async (req, res) => {
     try {
       const integrity = await checkDbIntegrity(db);
@@ -8358,6 +8419,8 @@ async function startAdminServer(db) {
           lastReadyAt: lastClientReadyAt,
           lastDisconnectedAt: lastDisconnectedAt,
           lastDisconnectReason: lastDisconnectReason,
+          hasQr: Boolean(latestQrDataUrl),
+          qrAt: latestQrAt,
         },
         alert: lastAlert,
         serverTime: nowWib().toISO(),
@@ -9052,6 +9115,14 @@ async function main() {
 
   client.on("qr", (qr) => {
     qrcode.generate(qr, { small: true });
+    // Simpan versi gambar untuk panel admin. Gagal membuat gambar tidak boleh
+    // menghentikan bot, jadi errornya hanya dicatat.
+    QRCode.toDataURL(qr, { margin: 1, width: 280 })
+      .then((url) => {
+        latestQrDataUrl = url;
+        latestQrAt = nowWib().toISO();
+      })
+      .catch((err) => console.error("Gagal membuat gambar QR:", err.message));
   });
 
   // Kode pairing juga ditulis ke berkas supaya bisa dibaca lewat SSH, tanpa perlu
@@ -9069,6 +9140,9 @@ async function main() {
     clientReady = true;
     lastClientReadyAt = nowWib().toISO();
     sendGuard.setReady(true);
+    // Sesi sudah tersambung: QR tidak diperlukan lagi.
+    latestQrDataUrl = "";
+    latestQrAt = null;
     console.log("bundacare siap digunakan.");
     try {
       if (fs.existsSync(PAIRING_CODE_PATH)) {

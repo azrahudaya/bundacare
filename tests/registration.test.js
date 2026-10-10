@@ -59,9 +59,9 @@ async function run() {
     await bot.ensureSettingsTable(db);
     await bot.loadRuntimeSettings(db);
     server = await bot.__startAdminServerForTest(db);
-    await check("site disajikan dari origin API", async () => {
-      const response = await req("GET", "/");
-      assert.equal(response.status, 200);
+    await check("API registrasi hidup di origin bot, landing tidak disajikan", async () => {
+      const landing = await req("GET", "/");
+      assert.equal(landing.status, 404, "landing tidak disajikan dari origin API");
       const availability = await req("GET", "/api/registrations/availability");
       assert.deepEqual(availability.data, { open: true });
     });

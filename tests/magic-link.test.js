@@ -148,6 +148,17 @@ async function run() {
     assert.ok(res.body.includes("Akses nomor"), "dashboard dirender");
   });
 
+  await test("endpoint QR tersedia untuk admin dan tertutup tanpa sesi", async () => {
+    const tanpaSesi = await request("GET", "/admin/api/qr");
+    assert.strictEqual(tanpaSesi.status, 401, "tanpa sesi ditolak");
+    const res = await request("GET", "/admin/api/qr", { headers: { Cookie: sessionCookie } });
+    assert.strictEqual(res.status, 200);
+    const data = JSON.parse(res.body || "{}");
+    assert.strictEqual(data.ok, true);
+    assert.ok(typeof data.connected === "boolean", "ada status koneksi");
+    assert.ok(typeof data.qr === "string", "field qr berupa string");
+  });
+
   await test("sesi bertahan setelah restart (dimuat ulang dari basis data)", async () => {
     // Meniru restart: peta sesi di memori dikosongkan, lalu dimuat dari DB.
     mod.__destroyAllAdminSessionsForTest();
