@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#C7354D">
+  <meta name="description" content="Bundacare mengingatkan ibu minum tablet FE dan jadwal nifas lewat WhatsApp.">
+  <link rel="icon" href="data:,">
+  <title>Bundacare | Pengingat ibu lewat WhatsApp</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#isi">Lewati ke isi</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="index.html">bundacare<span class="brand-period">.</span></a>
+      <nav class="header-nav" aria-label="Navigasi utama">
+        <a href="#cara-kerja">Cara kerja</a>
+        <a href="#bacaan">Bacaan</a>
+        <a class="nav-action" href="#daftar">Daftar pengingat</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="isi">
+    <section class="hero" aria-labelledby="judul">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <h1 id="judul">Daftar di sini.<br>Pengingatnya lewat <span>WhatsApp.</span></h1>
+          <p>Pengingat tablet FE dan jadwal kontrol pasca melahirkan via WhatsApp.</p>
+          <a class="button button-cream" href="#daftar">Daftar pengingat</a>
+          <p class="hero-note">Pilot bertahap. Cek status sebelum isi formulir.</p>
+        </div>
+        <div class="hero-visual" aria-label="Ilustrasi Bundacare">
+          <div class="placeholder-box">
+            <img src="images/placeholder.svg" alt="" width="120" height="120">
+            <span>Ilustrasi</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cara-kerja" class="flow-section" aria-labelledby="cara-judul">
+      <div class="wrap flow-grid">
+        <div class="flow-intro">
+          <p class="section-label">Cara kerja</p>
+          <h2 id="cara-judul">Dari website ke WhatsApp, tanpa pendataan lewat chat.</h2>
+        </div>
+        <ol class="flow-list">
+          <li>
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Isi data</h3>
+              <p>Nama, nomor WhatsApp, hari pertama haid terakhir (HPHT), dan jam pengingat.</p>
+            </div>
+          </li>
+          <li>
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Verifikasi nomor</h3>
+              <p>Kirim satu pesan WhatsApp dari nomor yang didaftarkan.</p>
+            </div>
+          </li>
+          <li>
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Tunggu persetujuan</h3>
+              <p>Pengingat aktif setelah pengelola menyetujui pendaftaran.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="daftar" class="signup-section" aria-labelledby="daftar-judul">
+      <div class="wrap signup-grid">
+        <div class="signup-intro">
+          <h2 id="daftar-judul" tabindex="-1">Atur pengingat ibu.</h2>
+          <p>Siapkan nomor WhatsApp yang ibu pakai sendiri. Pengingat baru berjalan setelah verifikasi dan persetujuan.</p>
+          <p class="small-note">HPHT = hari pertama haid terakhir. Bundacare bukan layanan darurat atau pengganti tenaga kesehatan.</p>
+        </div>
+        <div class="signup-panel">
+          <div id="availability" class="availability" role="status" aria-live="polite">Memeriksa ketersediaan…</div>
+          <form id="registration-form" novalidate>
+            <div class="field">
+              <label for="name">Nama ibu</label>
+              <input id="name" name="name" type="text" autocomplete="name" maxlength="100" required disabled aria-describedby="name-error">
+              <span class="field-error" id="name-error"></span>
+            </div>
+            <div class="field">
+              <label for="phone">Nomor WhatsApp</label>
+              <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="08…" maxlength="20" required disabled aria-describedby="phone-help phone-error">
+              <span class="field-help" id="phone-help">Gunakan nomor yang akan dipakai mengirim verifikasi.</span>
+              <span class="field-error" id="phone-error"></span>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="hpht">Hari pertama haid terakhir (HPHT)</label>
+                <input id="hpht" name="hpht" type="date" required disabled aria-describedby="hpht-error">
+                <span class="field-error" id="hpht-error"></span>
+              </div>
+              <div class="field">
+                <label for="reminderTime">Jam pengingat</label>
+                <input id="reminderTime" name="reminderTime" type="time" required disabled aria-describedby="time-error">
+                <span class="field-error" id="time-error"></span>
+              </div>
+            </div>
+            <div class="consent-row">
+              <input id="consent" name="consent" type="checkbox" required disabled aria-describedby="consent-error">
+              <label for="consent">Saya setuju data ini dipakai untuk pendaftaran, verifikasi, dan pengingat. Saya sudah membaca <a href="privasi.html" target="_blank">informasi privasi</a>.</label>
+            </div>
+            <span class="field-error consent-error" id="consent-error"></span>
+            <p class="privacy-note">Bundacare bukan layanan darurat atau pengganti tenaga kesehatan.</p>
+            <button id="submit-button" class="button button-berry" type="submit" disabled>Daftar pengingat</button>
+            <p id="form-feedback" class="form-feedback" role="alert" tabindex="-1" hidden></p>
+          </form>
+
+          <section id="registration-result" class="result" aria-labelledby="result-title" hidden>
+            <h3 id="result-title" tabindex="-1">Lanjutkan verifikasi nomor</h3>
+            <p>Data diterima, tetapi pengingat belum aktif. Buka WhatsApp dan kirim pesan yang sudah disiapkan dari nomor yang tadi didaftarkan.</p>
+            <p id="expiry-note" class="expiry-note"></p>
+            <a id="verification-link" class="button button-berry" target="_blank" rel="noopener noreferrer" href="https://wa.me/">Buka pesan verifikasi</a>
+            <p class="small-note">Tautan berisi kode sekali pakai. Jangan dibagikan. Pesan terkirim setelah ibu menekan Kirim.</p>
+            <div id="status-panel" class="status-panel" role="status" aria-live="polite">
+              <strong id="status-title">Menunggu verifikasi</strong>
+              <p id="status-description">Sesudah mengirim pesan, periksa status di sini.</p>
+            </div>
+            <div class="result-actions">
+              <button id="check-status" class="button button-outline" type="button">Periksa status</button>
+              <button id="start-over" class="text-button" type="button">Ubah nomor atau coba lagi</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="bacaan" class="articles wrap" aria-labelledby="artikel-judul">
+      <div class="articles-heading">
+        <p class="section-label">Bacaan</p>
+        <h2 id="artikel-judul">Baca saat perlu.</h2>
+      </div>
+      <div class="article-list">
+        <a href="https://remindcares.web.app/cara-minum-tablet-fe-yang-benar.html" target="_blank" rel="noopener noreferrer"><span>Kehamilan</span><strong>Cara minum tablet FE yang benar</strong><span class="article-open">Buka ↗</span></a>
+        <a href="https://remindcares.web.app/tanda-tanda-persalinan.html" target="_blank" rel="noopener noreferrer"><span>Persalinan</span><strong>Tanda-tanda persalinan</strong><span class="article-open">Buka ↗</span></a>
+        <a href="https://remindcares.web.app/kunjungan-masa-nifas.html" target="_blank" rel="noopener noreferrer"><span>Setelah melahirkan</span><strong>Kunjungan masa nifas</strong><span class="article-open">Buka ↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span class="footer-brand">bundacare.</span>
+      <a href="privasi.html">Informasi privasi pilot</a>
+      <a href="#isi">Kembali ke atas</a>
+    </div>
+  </footer>
+</body>
+</html>

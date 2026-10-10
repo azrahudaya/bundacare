@@ -13,6 +13,8 @@ const { createSendGuard } = require("./lib/send-guard");
 const { renderAdminSettingsPage } = require("./lib/admin-settings-page");
 const { ADMIN_CSS, icon } = require("./lib/admin-ui");
 const { loadEnvFile } = require("./lib/env-file");
+const { initRegistrations, registerRoutes, verifyMessage, cancelRegistration } = require("./lib/registration");
+const magicAuth = require("./lib/magic-link");
 
 // Muat .env sebelum konstanta di bawah dibaca. Env dari shell/systemd tetap menang.
 loadEnvFile(path.join(__dirname, ".env"));
@@ -66,11 +68,11 @@ const ADMIN_WEB_PORT = Number(process.env.ADMIN_WEB_PORT || 3030);
 const ADMIN_WEB_USER = process.env.ADMIN_WEB_USER || "admin";
 const ADMIN_WEB_PASSWORD = (process.env.ADMIN_WEB_PASSWORD || "").trim();
 const ADMIN_WEB_SESSION_TTL_MS = Number(
-  process.env.ADMIN_WEB_SESSION_TTL_MS || 8 * 60 * 60 * 1000,
+  process.env.ADMIN_WEB_SESSION_TTL_MS || 30 * 24 * 60 * 60 * 1000,
 );
 // Sesi yang dibiarkan terbuka tanpa aktivitas ikut ditutup, bukan hanya menunggu TTL.
 const ADMIN_WEB_IDLE_TIMEOUT_MS = Number(
-  process.env.ADMIN_WEB_IDLE_TIMEOUT_MS || 2 * 60 * 60 * 1000,
+  process.env.ADMIN_WEB_IDLE_TIMEOUT_MS || 14 * 24 * 60 * 60 * 1000,
 );
 const REMINDER_LOG_RETENTION_DAYS = Number(
   process.env.REMINDER_LOG_RETENTION_DAYS || 180,
@@ -2134,10 +2136,43 @@ function clearAdminLoginFailures(ip) {
   adminLoginAttempts.delete(ip);
 }
 
+// Form masuk (magic link dan fallback password) tidak memakai token CSRF, jadi asal
+// permintaan diperiksa: browser selalu mengirim Origin atau Referer, sedangkan situs lain
+// tidak boleh memasukkan korban ke sesi yang tidak dia sadari.
+function sameHostRequest(req) {
+  const origin = String(req.headers.origin || "");
+  const referer = String(req.headers.referer || "");
+  const host = String(req.headers.host || "");
+  const checkHost = (val) => {
+    if (!val) return false;
+    try {
+      return new URL(val).host === host;
+    } catch (_) {
+      return false;
+    }
+  };
+  return (!origin && !referer) || checkHost(origin) || checkHost(referer);
+}
+
+// Daftar origin yang boleh memanggil API registrasi lintas situs (landing di GitHub
+// Pages). Diisi lewat env REGISTRATION_ALLOWED_ORIGINS, dipisah koma.
+function corsAllowedOrigins() {
+  return String(process.env.REGISTRATION_ALLOWED_ORIGINS || "")
+    .split(/[\s,]+/)
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
+
+function corsAllowedOrigin(origin) {
+  const clean = String(origin || "").replace(/\/+$/, "");
+  if (!clean) return "";
+  return corsAllowedOrigins().includes(clean) ? clean : "";
+}
+
 function sessionTtlMs() {
   return Number.isFinite(ADMIN_WEB_SESSION_TTL_MS) && ADMIN_WEB_SESSION_TTL_MS > 0
     ? ADMIN_WEB_SESSION_TTL_MS
-    : 8 * 60 * 60 * 1000;
+    : 30 * 24 * 60 * 60 * 1000;
 }
 
 // Cookie yang dicuri tidak berguna dari mesin lain: sesi terikat ke alamat dan
@@ -2147,25 +2182,73 @@ function sessionFingerprint(req) {
   return `${clientIp(req)}|${agent}`;
 }
 
-function createAdminSession(req) {
+// Referensi basis data untuk menyimpan dan mencabut sesi. Diisi saat server admin mulai.
+let adminDb = null;
+
+function persistAdminSession(token, session, email) {
+  if (!adminDb) return;
+  magicAuth
+    .persistSession(adminDb, {
+      token,
+      email: email || session.email || "",
+      csrf: session.csrf,
+      fingerprint: session.fingerprint,
+      createdAt: new Date(session.lastSeen || Date.now()).toISOString(),
+      expiresAt: new Date(session.expiresAt).toISOString(),
+    })
+    .catch((err) => console.error("Gagal menyimpan sesi admin:", err.message));
+}
+
+function createAdminSession(req, email) {
   const token = crypto.randomBytes(24).toString("base64").replace(/[+/=]/g, "");
   const csrf = crypto.randomBytes(24).toString("base64").replace(/[+/=]/g, "");
   const now = Date.now();
   // token ikut disimpan supaya logout bisa mencabut sesi ini di sisi server
-  adminSessions.set(token, {
+  const session = {
     expiresAt: now + sessionTtlMs(),
     csrf,
     token,
+    email: email || "",
     fingerprint: sessionFingerprint(req),
     lastSeen: now,
     epoch: passwordEpoch,
-  });
-  return { token, csrf };
+  };
+  adminSessions.set(token, session);
+  persistAdminSession(token, session, email);
+  return { token, csrf, email: session.email };
+}
+
+// Dipanggil saat server admin mulai: sesi yang masih berlaku dimuat kembali dari basis
+// data supaya restart service tidak memaksa operator masuk ulang.
+async function loadPersistedAdminSessions(db) {
+  adminDb = db;
+  try {
+    const rows = await magicAuth.loadActiveSessions(db);
+    const now = Date.now();
+    for (const row of rows) {
+      // token mentah tidak ada di basis data, jadi kunci peta memakai hash. Cookie
+      // dicocokkan lewat hash pada getAdminSession.
+      adminSessions.set(`hash:${row.token_hash}`, {
+        expiresAt: Date.parse(row.expires_at),
+        csrf: row.csrf,
+        email: row.email,
+        fingerprint: row.fingerprint,
+        lastSeen: Date.parse(row.last_seen) || now,
+        epoch: passwordEpoch,
+        tokenHash: row.token_hash,
+      });
+    }
+  } catch (err) {
+    console.error("Gagal memuat sesi admin tersimpan:", err.message);
+  }
 }
 
 function destroyAdminSession(token) {
-  if (token) {
-    adminSessions.delete(token);
+  if (!token) return;
+  adminSessions.delete(token);
+  adminSessions.delete(`hash:${magicAuth.sha256(token)}`);
+  if (adminDb) {
+    magicAuth.deleteSession(adminDb, token).catch(() => {});
   }
 }
 
@@ -2175,7 +2258,10 @@ function getAdminSession(req) {
   if (!token) {
     return null;
   }
-  const session = adminSessions.get(token);
+  let session = adminSessions.get(token);
+  if (!session) {
+    session = adminSessions.get(`hash:${magicAuth.sha256(token)}`);
+  }
   if (!session) {
     return null;
   }
@@ -2189,9 +2275,16 @@ function getAdminSession(req) {
     session.fingerprint !== sessionFingerprint(req)
   ) {
     adminSessions.delete(token);
+    adminSessions.delete(`hash:${magicAuth.sha256(token)}`);
+    if (adminDb) {
+      magicAuth.deleteSession(adminDb, token).catch(() => {});
+    }
     return null;
   }
   session.lastSeen = now;
+  // Perpanjang masa berlaku selama dipakai: sesi "rolling" agar operator tidak
+  // terlempar hanya karena sedang tidak membuka panel beberapa hari.
+  session.expiresAt = now + sessionTtlMs();
   return session;
 }
 
@@ -2248,7 +2341,8 @@ function escapeForScriptContext(value) {
 
 function renderAdminLoginPage(message, options = {}) {
   const nonce = options && options.nonce ? String(options.nonce) : "";
-  const alert = message ? `<div class="banner" role="alert">${icon("alert")}<p>${escapeHtml(message)}</p></div>` : "";
+  const kind = options && options.kind === "ok" ? " ok" : "";
+  const alert = message ? `<div class="banner${kind}" role="alert">${icon(kind ? "check" : "alert")}<p>${escapeHtml(message)}</p></div>` : "";
   return `<!doctype html>
 <html lang="id">
   <head>
@@ -2272,17 +2366,14 @@ function renderAdminLoginPage(message, options = {}) {
           </div>
           <div class="panel-body">
             ${alert}
-            <form method="post" action="/admin/login">
+            <form method="post" action="/admin/login/magic">
               <div class="field">
-                <label for="login-username">Username</label>
-                <input id="login-username" name="username" type="text" autocomplete="username" placeholder="admin">
+                <label for="login-email">Email admin</label>
+                <input id="login-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="nama@contoh.com" required>
               </div>
-              <div class="field" style="margin-top:10px">
-                <label for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-              </div>
-              <button type="submit" class="btn-primary" style="margin-top:12px;width:100%">${icon("check")}Masuk</button>
+              <button type="submit" class="btn-primary" style="margin-top:12px;width:100%">${icon("link")}Kirim tautan masuk</button>
             </form>
+            <p class="muted" style="margin:0">Tautan masuk dikirim ke email admin. Tidak perlu password.</p>
           </div>
         </div>
       </div>
@@ -2491,6 +2582,12 @@ function renderAdminDashboardPage(options = {}) {
         </div>
       </section>
 
+      <section class="panel" aria-labelledby="registrations-title">
+        <div class="panel-head"><h2 id="registrations-title">Pendaftar menunggu persetujuan</h2><button type="button" id="registrations-refresh">Muat ulang</button></div>
+        <p class="note" id="registrations-note" role="status" aria-live="polite" style="padding:10px 12px">Memuat.</p>
+        <div class="table-wrap"><table><thead><tr><th scope="col">Nama</th><th scope="col">Nomor</th><th scope="col">Jam</th><th scope="col">Aksi</th></tr></thead><tbody id="registrations-body"></tbody></table></div>
+      </section>
+
       <section class="panel" aria-labelledby="logs-title">
         <div class="panel-head">
           <h2 id="logs-title">${icon("list")}Catatan pengingat</h2>
@@ -2508,6 +2605,46 @@ function renderAdminDashboardPage(options = {}) {
     <script nonce="${nonce}">
       const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
       function csrfHeaders(extra) { return Object.assign({ 'X-CSRF-Token': CSRF_TOKEN }, extra || {}); }
+      async function loadRegistrations() {
+        const body = document.getElementById('registrations-body');
+        const note = document.getElementById('registrations-note');
+        note.textContent = 'Memuat.';
+        body.replaceChildren();
+        try {
+          const response = await fetch('/admin/api/registrations', { credentials: 'same-origin' });
+          if (!response.ok) throw new Error('Daftar belum tersedia.');
+          const data = await response.json();
+          note.textContent = data.registrations.length ? data.registrations.length + ' pendaftar menunggu.' : 'Belum ada pendaftar menunggu.';
+          for (const row of data.registrations) {
+            const tr = document.createElement('tr');
+            for (const value of [row.name, row.phone, row.reminderTime]) {
+              const cell = document.createElement('td');
+              cell.textContent = value || '-';
+              tr.appendChild(cell);
+            }
+            const action = document.createElement('td');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Setujui';
+            button.addEventListener('click', async () => {
+              if (!window.confirm('Setujui pendaftar ini dan aktifkan pengingat?')) return;
+              button.disabled = true;
+              try {
+                const result = await fetch('/admin/api/registrations/' + encodeURIComponent(row.requestId) + '/approve', {
+                  method: 'POST', credentials: 'same-origin', headers: csrfHeaders({ 'Content-Type': 'application/json' }), body: '{}'
+                });
+                if (!result.ok) throw new Error('Persetujuan gagal. Muat ulang dan coba lagi.');
+                await loadRegistrations();
+              } catch (err) { note.textContent = err.message; button.disabled = false; }
+            });
+            action.appendChild(button);
+            tr.appendChild(action);
+            body.appendChild(tr);
+          }
+        } catch (err) { note.textContent = err.message; }
+      }
+      document.getElementById('registrations-refresh').addEventListener('click', loadRegistrations);
+      loadRegistrations();
       const ICON_LINK = '${icon("link", 14)}';
       const ICON_CHECK_BUTTON = '${icon("check", 14)}';
       const ICON_SHIELD_BUTTON = '${icon("shield", 14)}';
@@ -4079,6 +4216,7 @@ async function initDb(db) {
   await loadAliasCache(db);
   await ensureAllowedNumbersTable(db);
   await loadAllowedNumbers(db);
+  await initRegistrations(db);
   await reconcileRunnableUsers(db);
 }
 
@@ -4752,6 +4890,7 @@ async function deleteUserData(db, waId) {
   await dbRun(db, "DELETE FROM postpartum_visit_logs WHERE wa_id = ?", [waId]);
   await dbRun(db, "DELETE FROM reminder_logs WHERE wa_id = ?", [waId]);
   await dbRun(db, "DELETE FROM users WHERE wa_id = ?", [waId]);
+  await dbRun(db, "DELETE FROM registrations WHERE phone = ?", [waId.replace(/@c\.us$/, "")]);
 }
 
 function hasAnyDeliveryRecord(user) {
@@ -6797,6 +6936,30 @@ async function handleMessage(db, client, msg) {
     is_allowed: isAllowlistedIdentity(identityIds),
   };
   const existingUser = await getUser(db, waId);
+  if ((!existingUser || (existingUser.status === "onboarding" && !existingUser.is_blocked)) && /^VERIFIKASI\s+/i.test(text)) {
+    if (await verifyMessage(db, waId, text)) {
+      await sendText(client, waId, "Nomor terverifikasi. Pendaftaran menunggu persetujuan pengelola.");
+    }
+    return;
+  }
+  const registration = await dbGet(db, "SELECT status FROM registrations WHERE phone = ?", [waId.replace(/@c\.us$/, "")]);
+  if (registration && registration.status !== "active") {
+    if (/^(delete|hapus)$/i.test(text)) {
+      if (await cancelRegistration(db, waId, "delete")) await sendText(client, waId, "Data pendaftaran dihapus.");
+    } else if (/^(stop|berhenti)$/i.test(text)) {
+      if (await cancelRegistration(db, waId, "stop")) await sendText(client, waId, "Pendaftaran dibatalkan. Pengingat tidak akan dikirim.");
+    } else if (registration.status === "pending_approval") {
+      await sendText(client, waId, "Pendaftaran menunggu persetujuan pengelola.");
+    }
+    return;
+  }
+  if (!existingUser && /^(start|mulai)$/i.test(text)) {
+    await sendText(client, waId, "Daftar pengingat di https://bundacare.site. Verifikasi nomor melalui tautan setelah formulir terkirim.");
+    return;
+  }
+  if (!existingUser) {
+    return;
+  }
   if (
     !existingUser &&
     isAllowlistEnforced() &&
@@ -7001,7 +7164,7 @@ async function handleVoteUpdate(db, client, vote) {
       }
     } catch (_) {}
   }
-  if (!user) {
+  if (!user || user.status !== "active") {
     return;
   }
 
@@ -7236,6 +7399,9 @@ function noteReminderTickFailure(waId, err) {
 }
 
 async function processUserReminderTick(db, client, user, now, today) {
+  if (user.status !== "active" || user.is_blocked || !user.allow_remindcare) {
+    return;
+  }
   if (isAllowlistEnforced() && !user.is_allowed && !user.is_admin) {
     return;
   }
@@ -7649,11 +7815,7 @@ async function applyAdminUserAction(db, user, action, value) {
     if (String(value || "") !== "HAPUS") {
       return { ok: false, error: "Konfirmasi salah. Isi nilai HAPUS untuk menghapus data." };
     }
-    await dbRun(db, "DELETE FROM postpartum_visit_logs WHERE wa_id = ?", [
-      user.wa_id,
-    ]);
-    await dbRun(db, "DELETE FROM reminder_logs WHERE wa_id = ?", [user.wa_id]);
-    await dbRun(db, "DELETE FROM users WHERE wa_id = ?", [user.wa_id]);
+    await deleteUserData(db, user.wa_id);
     console.warn("Data user dihapus atas permintaan operator:", user.wa_id);
     return { ok: true, action, deleted: user.wa_id };
   }
@@ -7888,6 +8050,8 @@ async function startAdminServer(db) {
   }
 
   const passwordConfig = await resolvePasswordConfig(db);
+  await magicAuth.initMagicAuth(db);
+  await loadPersistedAdminSessions(db);
 
   const app = express();
   app.disable("x-powered-by");
@@ -7895,7 +8059,16 @@ async function startAdminServer(db) {
     app.set("trust proxy", true);
   }
   app.use(express.urlencoded({ extended: false }));
-  app.use(express.json());
+  app.use(express.json({ limit: "8kb" }));
+  app.use((err, req, res, next) => {
+    if (req.path.startsWith("/api/registrations") && err.status === 413) {
+      return res.status(413).json({ error: "Data formulir terlalu besar." });
+    }
+    if (req.path.startsWith("/api/registrations") && err.status === 400) {
+      return res.status(400).json({ error: "Format JSON tidak valid." });
+    }
+    return next(err);
+  });
   // Font self-host supaya panel admin tidak bergantung pada Google Fonts.
   app.use("/assets", express.static(path.join(__dirname, "assets")));
   const renderContext = (req, res) => ({
@@ -7912,6 +8085,24 @@ async function startAdminServer(db) {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    // CORS hanya untuk endpoint registrasi publik, supaya landing page yang di-host di
+    // GitHub Pages bisa memanggil API ini. Origin dibatasi ke daftar putih; panel admin
+    // tidak pernah menerima CORS karena cookie sesi tidak boleh dipakai lintas situs.
+    const reqOrigin = String(req.headers.origin || "");
+    if (req.path.startsWith("/api/registrations")) {
+      const allow = corsAllowedOrigin(reqOrigin);
+      if (allow) {
+        res.setHeader("Access-Control-Allow-Origin", allow);
+        res.setHeader("Vary", "Origin");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+        res.setHeader("Access-Control-Max-Age", "600");
+      }
+      if (req.method === "OPTIONS") {
+        res.status(204).end();
+        return;
+      }
+    }
     res.setHeader(
       "Content-Security-Policy",
       [
@@ -7989,37 +8180,84 @@ async function startAdminServer(db) {
     res.redirect("/admin/login");
   };
 
+  registerRoutes(app, db, { requireAdmin, requireCsrf });
+  app.use(express.static(path.join(__dirname, "site"), { index: "index.html", fallthrough: true }));
+
   app.get("/admin/login", (req, res) => {
     const expired = String(req.query.expired || "") === "1";
+    const sent = String(req.query.sent || "") === "1";
+    const bad = String(req.query.error || "");
+    let message = "";
+    let kind = "bad";
+    if (expired) message = "Sesi berakhir. Silakan masuk lagi.";
+    else if (sent) { message = "Kalau email itu terdaftar, tautan masuk sudah dikirim. Periksa kotak masuk dan folder spam."; kind = "ok"; }
+    else if (bad === "token") message = "Tautan tidak valid atau sudah dipakai. Minta tautan baru.";
     res.send(
-      renderAdminLoginPage(
-        expired ? "Sesi berakhir. Silakan masuk lagi." : "",
-        { nonce: res.locals.nonce },
-      ),
+      renderAdminLoginPage(message, { nonce: res.locals.nonce, kind }),
     );
   });
 
+  // Kirim magic link. Jawaban selalu sama supaya tidak membocorkan email mana yang
+  // terdaftar. Pemeriksaan asal permintaan dan batas laju tetap berlaku.
+  app.post("/admin/login/magic", async (req, res) => {
+    const ip = clientIp(req);
+    if (!sameHostRequest(req)) {
+      res.status(403).send(renderAdminLoginPage("Permintaan masuk harus dari halaman panel.", { nonce: res.locals.nonce }));
+      return;
+    }
+    const gate = checkAdminLoginAllowed(ip);
+    if (!gate.allowed) {
+      res.status(429).send(renderAdminLoginPage("Terlalu banyak percobaan. Coba lagi beberapa menit lagi.", { nonce: res.locals.nonce }));
+      return;
+    }
+    const email = magicAuth.normalizeEmail(String(req.body.email || ""));
+    if (!email || magicAuth.rateLimited("ip", ip) || magicAuth.rateLimited("email", email)) {
+      res.status(429).send(renderAdminLoginPage("Terlalu banyak permintaan tautan. Tunggu sebentar lalu coba lagi.", { nonce: res.locals.nonce }));
+      return;
+    }
+    if (magicAuth.isAllowedAdminEmail(email)) {
+      if (!magicAuth.smtpConfigured()) {
+        console.error("SMTP belum dikonfigurasi: tautan masuk tidak dapat dikirim.");
+      } else {
+        try {
+          const { token, expiresAt } = await magicAuth.createMagicToken(db, email);
+          const base = magicAuth.magicLinkBaseUrl() || `${req.protocol}://${req.get("host")}`;
+          const link = `${base}/admin/auth?token=${encodeURIComponent(token)}`;
+          await magicAuth.sendMagicLinkEmail(email, link, expiresAt);
+          clearAdminLoginFailures(ip);
+        } catch (err) {
+          console.error("Gagal mengirim tautan masuk:", err.message);
+          registerAdminLoginFailure(ip, email);
+        }
+      }
+    } else {
+      // Tetap catat supaya percobaan ke email asing ikut terhitung batas laju.
+      registerAdminLoginFailure(ip, email);
+    }
+    res.redirect("/admin/login?sent=1");
+  });
+
+  // Tukar token magic link menjadi sesi. Token sekali pakai dan berumur pendek.
+  app.get("/admin/auth", async (req, res) => {
+    const raw = String(req.query.token || "");
+    const email = await magicAuth.consumeMagicToken(db, raw);
+    if (!email) {
+      res.redirect("/admin/login?error=token");
+      return;
+    }
+    clearAdminLoginFailures(clientIp(req));
+    const session = createAdminSession(req, email);
+    setAdminCookie(res, session.token);
+    res.redirect("/admin");
+  });
+
+  // Fallback darurat berbasis password. Hanya aktif kalau ADMIN_WEB_PASSWORD diisi.
   app.post("/admin/login", async (req, res) => {
     const ip = clientIp(req);
     const username = String(req.body.username || "").trim();
     const password = String(req.body.password || "");
 
-    // Form login tidak memakai token CSRF, jadi asal permintaan diperiksa: browser
-    // selalu mengirim Origin atau Referer, sedangkan situs lain tidak boleh memasukkan
-    // korban ke sesi yang tidak dia sadari.
-    const origin = String(req.headers.origin || "");
-    const referer = String(req.headers.referer || "");
-    const host = String(req.headers.host || "");
-    const checkHost = (val) => {
-      if (!val) return false;
-      try {
-        return new URL(val).host === host;
-      } catch (_) {
-        return false;
-      }
-    };
-    const fromPanel = (!origin && !referer) || checkHost(origin) || checkHost(referer);
-    if (!fromPanel) {
+    if (!sameHostRequest(req)) {
       res.status(403).send(
         renderAdminLoginPage("Permintaan masuk harus dari halaman panel.", {
           nonce: res.locals.nonce,
@@ -8057,7 +8295,7 @@ async function startAdminServer(db) {
 
     clearAdminLoginFailures(ip);
     await refreshPasswordEpoch(db);
-    const session = createAdminSession(req);
+    const session = createAdminSession(req, "");
     setAdminCookie(res, session.token);
     res.redirect("/admin");
   });
@@ -8926,6 +9164,10 @@ module.exports = {
   pairingOptions,
   // jembatan uji: hanya untuk menguji siklus hidup sesi admin tanpa membuka server
   __createAdminSessionForTest: createAdminSession,
+  __loadPersistedAdminSessionsForTest: loadPersistedAdminSessions,
+  __destroyAllAdminSessionsForTest: () => adminSessions.clear(),
+  __magicAuthForTest: magicAuth,
+  corsAllowedOrigin,
   __openDbForTest: openDb,
   __initDbForTest: initDb,
   __startAdminServerForTest: startAdminServer,
@@ -9018,6 +9260,7 @@ module.exports = {
   getWeeklyAdherence,
   buildWeeklyDigest,
   __handleMessageForTest: handleMessage,
+  __processUserReminderTickForTest: processUserReminderTick,
   __handleVoteUpdateForTest: handleVoteUpdate,
   __handleAdminCommandForTest: handleAdminCommand,
   normalizeBirthWeightGram,

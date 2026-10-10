@@ -78,18 +78,43 @@ ss -ltn | grep 3030                                   # panel admin mendengarkan
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3030/admin/login   # harus 200
 ```
 
-Endpoint kesehatan butuh sesi admin, jadi masuk dulu lewat panel (password ada di
-`ADMIN_WEB_PASSWORD` pada `.env`, atau hasil `scripts/rotate-admin-password.js`).
+Endpoint kesehatan butuh sesi admin, jadi masuk dulu lewat panel. Login utama memakai
+magic link ke email admin; fallback password hanya kalau `ADMIN_WEB_PASSWORD` diisi.
 Kalau log tidak memuat "siap digunakan", taut ulang sesinya.
 
-## Password admin
+## Masuk panel: magic link (default)
+
+Login tidak lagi memakai password. Operator memasukkan email admin, lalu tautan masuk
+dikirim ke email itu. Isi `.env`:
+
+```env
+ADMIN_EMAILS=hudaya.azra@gmail.com
+ADMIN_WEB_PUBLIC_URL=https://bot.bundacare.site   # URL publik panel, untuk menyusun tautan
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=alamat@gmail.com
+SMTP_PASS=app-password-16-karakter
+MAIL_FROM="Bundacare <alamat@gmail.com>"
+```
+
+- `SMTP_PASS` adalah App Password Gmail (Google Account > Security > 2-Step Verification >
+  App passwords), bukan password akun.
+- Tautan berumur pendek (default 15 menit, `MAGIC_LINK_TTL_MS`) dan sekali pakai.
+- Token magic link dan token sesi disimpan hanya sebagai hash SHA-256 di SQLite.
+- Sesi disimpan di tabel `admin_sessions`, jadi restart service tidak memaksa masuk ulang.
+  Masa berlaku default rolling 30 hari (`ADMIN_WEB_SESSION_TTL_MS`), idle 14 hari
+  (`ADMIN_WEB_IDLE_TIMEOUT_MS`). Sesi terikat alamat IP dan User-Agent saat login.
+- Untuk menguji tanpa mengirim email nyata, set `SMTP_JSON_TRANSPORT=1`.
+
+Fallback darurat berbasis password (opsional): isi `ADMIN_WEB_PASSWORD` dan kirim form ke
+`POST /admin/login` (form di halaman login memakai `/admin/login/magic`). Kalau
+`ADMIN_WEB_PASSWORD` kosong, login password mati.
 
 Password disimpan sebagai hash scrypt di tabel `settings` (`admin_password_hash` dan
-`admin_password_hash_salt`) dan itu satu-satunya sumber verifikasi. Tidak ada lagi berkas
-password plaintext di `data/`.
+`admin_password_hash_salt`). Tidak ada berkas password plaintext di `data/`.
 
 ```bash
-# ganti password tanpa menyentuh .env
+# ganti password darurat tanpa menyentuh .env
 node scripts/rotate-admin-password.js            # mengikuti petunjuk di skrip
 ```
 
@@ -256,3 +281,15 @@ Pulihkan dulu dari backup sebelum mengaktifkan lagi.
 Folder `data/` (database, audio, backup, file password admin) dan `.wwebjs_auth/`.
 `.gitignore` sudah menutupinya dengan pola `data*/`. Periksa dengan `git ls-files`
 sebelum setiap commit.
+
+## Pendaftaran web pilot
+
+Belum ada deploy produksi dalam pekerjaan ini.
+
+Registrasi mati secara default (`PUBLIC_REGISTRATION_ENABLED=0`). Sediakan `PUBLIC_WA_NUMBER=628...` jika bot dipasangkan lewat QR; jika pairing memakai nomor, `WA_PAIRING_NUMBER` dapat dipakai sebagai tujuan tautan. Jangan aktifkan sampai kebijakan privasi, permintaan penghapusan, dan jalur HTTPS dari `bundacare.site` ke Express di port admin tersedia. Cloudflare Pages tidak otomatis mem-proxy `/api/registrations`: atur reverse proxy satu origin dan uji dulu, jangan mengekspos port panel admin langsung ke internet.
+
+Sebelum uji coba, cadangkan `data/bundacare.db` dengan `npm run backup` dan folder sesi `.wwebjs_auth`. Gunakan nomor pilot milik pengelola, bukan nomor pasien. Uji di DB sementara dengan `npm test`, kemudian verifikasi POST, status, pesan masuk dari nomor yang sama, daftar admin `GET /admin/api/registrations`, dan persetujuan `POST /admin/api/registrations/:requestId/approve` menggunakan cookie sesi serta header `x-csrf-token`. Persetujuan mengaktifkan akun yang baru atau akun onboarding lama milik nomor yang sudah terverifikasi; akun yang diblokir tidak bisa diaktifkan lewat jalur ini. Kuota aktivasi pilot tercatat terpisah dari data kesehatan agar penghapusan akun tidak mereset batas harian. Status publik tidak menampilkan data ibu. RequestId adalah identitas status, bukan kredensial admin.
+
+WhatsApp hanya menerima kode setelah ibu mengirim sendiri pesan yang dibuka melalui `wa.me`; aplikasi tidak mengirim kode otomatis. Kode berlaku 15 menit dan tidak disimpan plaintext. Nomor yang sudah terdaftar atau sedang menunggu menerima respons web dengan bentuk sama tetapi kode baru tidak mengubah akun; hubungi pengelola bila perlu. Pendaftaran yang kedaluwarsa bisa dicoba ulang dari formulir. Tidak ada jalur uji yang boleh mengirim pesan ke pasien. Pengingat tetap hanya untuk `users.status='active'` dan pengguna yang tidak diblokir. `stop` menjeda.
+
+Selama pilot pantau antrean kirim, kegagalan WA Web, status dan persetujuan secara manual. `whatsapp-web.js` bukan API resmi. Jangan menjanjikan pengiriman atau kestabilan akun. Tutup kembali `PUBLIC_REGISTRATION_ENABLED=0` jika ada masalah.

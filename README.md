@@ -46,7 +46,16 @@ Automated maternal health WhatsApp bot that manages daily iron supplement (table
 - Pregnancy and delivery lifecycle: calculates estimated delivery date (HPL) from last menstrual period (HPHT), initiates delivery verification at week 39+, and transitions into postpartum visit reminders (KF1, KF2, KF3).
 - WhatsApp traffic hardening: strict rate limiting, serial message queueing, send-time jitter, session warm-up curve, and circuit breakers to prevent account restrictions.
 - Web admin dashboard: secure operator portal featuring 7-day adherence charts, inactive patient lists, CSRF protection, and CSV export.
+- Passwordless admin login: magic link sent by email (Gmail SMTP), single-use short-lived tokens, sessions stored in SQLite so they survive restarts.
 - External watchdog monitor: automated background heartbeat check with multi-channel alerts via Telegram and webhooks if the bot process degrades.
+
+## Pendaftaran web pilot
+
+Ibu mengisi formulir di website, mengirim satu kode dari nomor WhatsApp sendiri, lalu menunggu persetujuan pengelola. Fitur ini belum dibuka pada bundacare.site: endpoint publik mati secara default dan situs statis belum dihubungkan ke API di server bot. Kode yang lolos tes lokal belum membuktikan pesan terkirim pada sesi WhatsApp sungguhan.
+
+Kontrak API dan penyiapan pilot ada di [`deploy/INSTALL.md`](deploy/INSTALL.md). Antarmuka dan arah visual ada di [`DESIGN.md`](DESIGN.md). Uji integrasi browser tanpa mengirim WA nyata: `node tests/registration-browser.test.js` (memerlukan Google Chrome; lokasi dapat diatur lewat `PUPPETEER_EXECUTABLE_PATH`).
+
+Status lokal: formulir mengirim ke API satu origin ketika `PUBLIC_REGISTRATION_ENABLED=1` dan nomor bot dikonfigurasi; ketika pilot tutup atau situs statis tanpa API, formulir tetap nonaktif. Dokumen privasi di `site/privasi.html` masih menandai kontak pengelola dan masa simpan yang belum diputuskan. Jangan membuka pendaftaran umum sebelum dua hal itu ditetapkan dan jalur HTTPS teruji.
 
 ## Quick Start
 
@@ -67,10 +76,16 @@ cp .env.example .env
 Configure `.env` with your settings:
 
 ```env
-ADMIN_PHONE=628xxxxxxxxxx
-ADMIN_PASSWORD=change-this-secure-password
-ADMIN_SESSION_SECRET=your-random-32-character-secret
+ADMIN_WA_IDS=628xxxxxxxxxx
+ALLOWLIST_WA_IDS=628xxxxxxxxxx
+ENFORCE_ALLOWLIST=1
 TIMEZONE=Asia/Jakarta
+# Login panel admin (magic link lewat email)
+ADMIN_EMAILS=hudaya.azra@gmail.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=alamat@gmail.com
+SMTP_PASS=app-password-16-karakter
 ```
 
 Run test suite:
@@ -89,8 +104,12 @@ Connect your WhatsApp session by scanning the QR code in the terminal or by spec
 
 The admin web dashboard is accessible at:
 ```text
-http://127.0.0.1:3000/admin
+http://127.0.0.1:3030/admin
 ```
+
+Sign in with a magic link: enter the admin email and the login link is sent to that inbox.
+Sessions live in SQLite, so they survive restarts (default rolling 30 days, 14 days idle).
+Set `SMTP_JSON_TRANSPORT=1` to test the flow without sending real email.
 
 ## Production Deployment
 

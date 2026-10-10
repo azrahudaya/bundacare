@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" fill="none">
+  <rect width="600" height="500" fill="#FFF5F0"/>
+  <circle cx="300" cy="240" r="160" fill="#C7354D" fill-opacity="0.08"/>
+  <circle cx="300" cy="240" r="120" fill="#C7354D" fill-opacity="0.06"/>
+  
+  <!-- Woman figure -->
+  <ellipse cx="300" cy="420" rx="90" ry="25" fill="#C7354D" fill-opacity="0.1"/>
+  <path d="M260 420 C260 340 280 300 300 300 C320 300 340 340 340 420" fill="#FFE7D7"/>
+  <circle cx="300" cy="250" r="45" fill="#FFE7D7"/>
+  <path d="M255 250 C255 225 275 205 300 205 C325 205 345 225 345 250 C345 275 325 290 300 290 C275 290 255 275 255 250" fill="#4A3F4F"/>
+  <circle cx="285" cy="245" r="4" fill="#4A3F4F"/>
+  <circle cx="315" cy="245" r="4" fill="#4A3F4F"/>
+  <path d="M292 260 Q300 265 308 260" stroke="#4A3F4F" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Dress -->
+  <path d="M270 290 Q300 310 330 290 L345 420 L255 420 Z" fill="#C7354D"/>
+  <path d="M300 310 Q315 330 320 360" stroke="#FFE7D7" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Phone -->
+  <rect x="380" y="260" width="70" height="120" rx="10" fill="#24202D"/>
+  <rect x="385" y="270" width="60" height="90" rx="4" fill="#25D366"/>
+  <text x="390" y="300" font-family="sans-serif" font-size="10" fill="white">💬</text>
+  <text x="390" y="320" font-family="sans-serif" font-size="8" fill="white">Sudah minum</text>
+  <text x="390" y="332" font-family="sans-serif" font-size="8" fill="white">tablet FE?</text>
+  <circle cx="435" cy="355" r="6" fill="#24202D"/>
+  
+  <!-- Notification bubble -->
+  <rect x="220" y="180" width="110" height="50" rx="12" fill="white" stroke="#C7354D" stroke-width="2"/>
+  <text x="235" y="210" font-family="sans-serif" font-size="11" fill="#24202D">Pengingat hari ini</text>
+  <circle cx="235" cy="200" r="5" fill="#FFD65A"/>
+  
+  <!-- Tablet icon -->
+  <rect x="210" y="320" width="40" height="20" rx="10" fill="#FFD65A"/>
+  <text x="225" y="334" font-family="sans-serif" font-size="10" fill="#24202D" text-anchor="middle">FE</text>
+  
+  <!-- Decorative elements -->
+  <circle cx="150" cy="180" r="12" fill="#C7354D" fill-opacity="0.2"/>
+  <circle cx="460" cy="420" r="16" fill="#FFD65A" fill-opacity="0.3"/>
+  <circle cx="480" cy="160" r="8" fill="#C7354D" fill-opacity="0.15"/>
+</svg>

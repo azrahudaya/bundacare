@@ -3,7 +3,8 @@ node_modules/
 # Pola data*/ menutup juga folder lama "data backup" yang dulu lolos dari data/.
 data*/
 .env
-.env.local
+.env.*
+!.env.example
 *.db
 *.db-wal
 *.db-shm
@@ -14,3 +15,14 @@ bot.lock
 npm-debug.log*
 *.log
 coverage/
+
+# Informasi infrastruktur dan kredensial lokal: jangan pernah di-commit.
+infra.local.md
+*_SECRET.md
+*secret*.md
+deploy/secrets*
+*.pem
+*.key
+id_rsa*
+# Catatan kerja internal Hermes (rencana, kontrak) tidak perlu masuk repo.
+.hermes/

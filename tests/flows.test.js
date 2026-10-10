@@ -133,13 +133,11 @@ async function run2() {
     await mod.addPanelAllowedNumber(db, PATIENT, null, "panel", "admin");
     sent.length = 0;
     await mod.__handleMessageForTest(db, client, makeMsg(PATIENT, "start", { number: "6285794961470" }));
-    assert.ok(
-      sent.some((m) => /Pertanyaan 1 dari \d+/.test(m.body)),
-      JSON.stringify(sent),
-    );
+    assert.ok(sent.some((m) => /Daftar pengingat di https:\/\/bundacare\.site/.test(m.body)), JSON.stringify(sent));
     const row = await get(db, "SELECT * FROM users WHERE wa_id = ?", [PATIENT]);
-    assert.strictEqual(Number(row.onboarding_step), 1);
-    assert.strictEqual(row.status, "onboarding");
+    assert.strictEqual(row, undefined);
+    await run(db, `INSERT INTO users (wa_id,status,onboarding_step,is_allowed,created_at,updated_at)
+      VALUES (?,'onboarding',1,1,?,?)`, [PATIENT, nowIso, nowIso]);
   });
 
   await test("jawaban nama tanpa huruf ditolak, nama benar lanjut ke pertanyaan 2", async () => {
