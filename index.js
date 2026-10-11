@@ -113,6 +113,9 @@ const WA_PAIRING_NUMBER = String(process.env.WA_PAIRING_NUMBER || "").replace(
   "",
 );
 const PAIRING_CODE_PATH = path.join(DATA_DIR, "pairing-code.txt");
+// Mode uji lokal tanpa SMTP: tautan masuk ditulis ke berkas ini supaya operator bisa
+// membukanya tanpa email sungguhan. Hanya aktif saat SMTP_JSON_TRANSPORT menyala.
+const MAGIC_LINK_PATH = path.join(DATA_DIR, "magic-link.txt");
 const PAIRING_CODE_REFRESH_MS = Number(
   process.env.WA_PAIRING_CODE_REFRESH_MS || 180000,
 );
@@ -194,16 +197,6 @@ const QUESTIONS = [
       "Sekarang sedang mengandung anak ke berapa Bu? 🤰",
       "Ini merupakan kehamilan yang ke berapa bagi Ibu? 👶",
       "Sedang hamil anak ke berapa saat ini, Bu? 🤍",
-    ],
-  },
-  {
-    field: "hpht",
-    text: "HPHT (Hari Pertama Haid Terakhir) kapan? Format tanggal-bulan-tahun, contoh: 31-01-2024 📅",
-    variants: [
-      "HPHT (Hari Pertama Haid Terakhir) kapan? Format tanggal-bulan-tahun, contoh: 31-01-2024 📅",
-      "Kapan hari pertama haid terakhir (HPHT) Ibu? Format tanggal-bulan-tahun ya, contoh: 31-01-2024 📅",
-      "Boleh tahu tanggal HPHT Ibu? Tulis dengan format tanggal-bulan-tahun, contoh: 31-01-2024 🗓️",
-      "Tanggal HPHT kapan Bu? Format penulisan: tanggal-bulan-tahun, contoh: 31-01-2024 📅",
     ],
   },
   {
@@ -2530,35 +2523,33 @@ function renderAdminDashboardPage(options = {}) {
 
       <section class="panel" aria-labelledby="users-title">
         <div class="panel-head">
-          <h2 id="users-title">${icon("users")}User</h2>
+          <h2 id="users-title">${icon("users")}Daftar ibu</h2>
           <div class="row">
             <span class="search-wrap">${icon("search")}<input id="users-search" class="search" type="search" autocomplete="off" aria-label="Cari nama atau nomor WhatsApp" placeholder="Cari nama atau nomor"></span>
-            <div class="seg" role="group" aria-label="Filter fase">
+            <div class="seg" role="group" aria-label="Filter status">
               <button type="button" class="phase-filter" data-phase-filter="all" aria-pressed="true">Semua</button>
-              <button type="button" class="phase-filter" data-phase-filter="onboarding" aria-pressed="false">Onboarding</button>
-              <button type="button" class="phase-filter" data-phase-filter="kehamilan" aria-pressed="false">Kehamilan</button>
-              <button type="button" class="phase-filter" data-phase-filter="persalinan" aria-pressed="false">Persalinan</button>
-              <button type="button" class="phase-filter" data-phase-filter="pasca_kehamilan" aria-pressed="false">Nifas</button>
+              <button type="button" class="phase-filter" data-phase-filter="onboarding" aria-pressed="false">Belum lengkap</button>
+              <button type="button" class="phase-filter" data-phase-filter="aktif" aria-pressed="false">Aktif</button>
+              <button type="button" class="phase-filter" data-phase-filter="dijeda" aria-pressed="false">Dijeda</button>
             </div>
           </div>
         </div>
         <p class="note" id="users-note" hidden style="padding:10px 12px 0"></p>
-        <p class="muted" style="padding:0 12px 10px">FE tablet tambah darah, KF dan KN kunjungan nifas serta bayi baru.</p>
+        <p class="muted" style="padding:0 12px 10px">Pengingat tablet tambah darah harian lewat WhatsApp.</p>
         <div class="table-wrap">
           <table>
             <caption id="users-count">memuat</caption>
             <thead>
               <tr>
                 <th scope="col">Nama</th>
-                <th scope="col">Fase</th>
                 <th scope="col">Status</th>
                 <th scope="col">Jam</th>
                 <th scope="col">Jawaban terakhir</th>
-                <th scope="col">Progres</th>
+                <th scope="col">Kepatuhan 7 hari</th>
               </tr>
             </thead>
             <tbody id="users-body" aria-busy="true">
-              <tr><td colspan="6" class="muted">Memuat.</td></tr>
+              <tr><td colspan="5" class="muted">Memuat.</td></tr>
             </tbody>
           </table>
         </div>
@@ -2684,16 +2675,14 @@ function renderAdminDashboardPage(options = {}) {
       }
       function clampPct(v) { return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0; }
       function classifyPhase(user) {
-        if (Number(user.postpartum_total || 0) > 0 || user.delivery_date_iso) return 'pasca_kehamilan';
-        const labor = Number(user.delivery_data_step || 0) > 0 || !!user.delivery_poll_stage || !!user.delivery_hpl_poll_sent_date ||
-          !!user.delivery_hpl3_poll_sent_date || user.delivery_hpl_response === 'Sudah' || user.delivery_hpl3_response === 'Sudah';
-        if (labor) return 'persalinan';
-        if (user.status === 'onboarding' || !user.hpht_iso) return 'onboarding';
-        return 'kehamilan';
+        if (user.status === 'onboarding') return 'onboarding';
+        if (user.status === 'paused') return 'dijeda';
+        if (user.status === 'completed') return 'selesai';
+        return 'aktif';
       }
-      const PHASE_LABEL = { onboarding: 'Onboarding', kehamilan: 'Kehamilan', persalinan: 'Persalinan', pasca_kehamilan: 'Nifas' };
-      const PHASE_TONE = { onboarding: 'badge', kehamilan: 'badge badge-ok', persalinan: 'badge badge-warn', pasca_kehamilan: 'badge badge-accent' };
-      const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Pendataan' };
+      const PHASE_LABEL = { onboarding: 'Belum lengkap', aktif: 'Aktif', dijeda: 'Dijeda', selesai: 'Selesai' };
+      const PHASE_TONE = { onboarding: 'badge badge-accent', aktif: 'badge badge-ok', dijeda: 'badge badge-warn', selesai: 'badge' };
+      const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Belum lengkap' };
       const STATUS_TONE = { active: 'badge badge-ok', paused: 'badge badge-warn', completed: 'badge', onboarding: 'badge badge-accent' };
       function badge(tone, text) {
         const span = document.createElement('span');
@@ -2917,7 +2906,7 @@ function renderAdminDashboardPage(options = {}) {
         }
       }
       function phaseCounts() {
-        const counts = { onboarding: 0, kehamilan: 0, persalinan: 0, pasca_kehamilan: 0 };
+        const counts = { onboarding: 0, aktif: 0, dijeda: 0, selesai: 0 };
         for (const user of usersCache) counts[classifyPhase(user)] += 1;
         return counts;
       }
@@ -2941,15 +2930,14 @@ function renderAdminDashboardPage(options = {}) {
         if (!filtered.length) {
           const tr = document.createElement('tr');
           const td = document.createElement('td');
-          td.colSpan = 6;
+          td.colSpan = 5;
           td.className = 'muted';
-          td.textContent = usersCache.length ? 'Tidak ada yang cocok dengan filter.' : 'Belum ada user.';
+          td.textContent = usersCache.length ? 'Tidak ada yang cocok dengan filter.' : 'Belum ada ibu terdaftar.';
           tr.appendChild(td);
           tbody.appendChild(tr);
           return;
         }
         for (const user of filtered) {
-          const phase = classifyPhase(user);
           const p = progress(user);
           const tr = document.createElement('tr');
           const nameCell = document.createElement('td');
@@ -2960,9 +2948,6 @@ function renderAdminDashboardPage(options = {}) {
           link.textContent = fmt(user.name);
           nameCell.appendChild(link);
           tr.appendChild(nameCell);
-          const phaseCell = document.createElement('td');
-          phaseCell.appendChild(badge(PHASE_TONE[phase], PHASE_LABEL[phase]));
-          tr.appendChild(phaseCell);
           const statusCell = document.createElement('td');
           statusCell.appendChild(badge(STATUS_TONE[user.status] || 'badge', STATUS_LABEL[user.status] || fmt(user.status)));
           tr.appendChild(statusCell);
@@ -2978,11 +2963,8 @@ function renderAdminDashboardPage(options = {}) {
             progressCell.className = 'muted';
             progressCell.textContent = 'belum mulai';
           } else {
-            const bits = ['FE ' + p.fe + '%'];
-            if (p.labor !== 'Belum') bits.push('Persalinan ' + p.labor);
-            if (p.pp > 0 || p.labor === 'Selesai') bits.push('KF/KN ' + p.pp + '%');
             progressCell.className = 'num';
-            progressCell.textContent = bits.join(' · ');
+            progressCell.textContent = p.fe + '% dari ' + Number(user.total_logs || 0) + ' pengingat';
           }
           tr.appendChild(progressCell);
           tbody.appendChild(tr);
@@ -3317,10 +3299,8 @@ function renderAdminUserDetailPage(waId, options = {}) {
           <span id="status-badge" class="badge">-</span>
         </div>
         <dl class="kv kv-3">
-          <div><dt>Fase</dt><dd id="phase">-</dd></div>
           <div><dt>Status</dt><dd id="status">-</dd></div>
           <div><dt>Jam pengingat</dt><dd id="time" class="num">-</dd></div>
-          <div><dt>Tanggal persalinan</dt><dd id="delivery-date" class="num">-</dd></div>
           <div><dt>Total sudah</dt><dd id="sudah" class="num">-</dd></div>
           <div><dt>Total belum</dt><dd id="belum" class="num">-</dd></div>
         </dl>
@@ -3328,14 +3308,11 @@ function renderAdminUserDetailPage(waId, options = {}) {
 
       <section class="panel" aria-labelledby="profil-title">
         <div class="panel-head">
-          <h2 id="profil-title">${icon("users")}Profil & Kehamilan</h2>
+          <h2 id="profil-title">${icon("users")}Profil Ibu</h2>
         </div>
         <dl class="kv kv-3">
           <div><dt>Usia Ibu</dt><dd id="profil-age">-</dd></div>
           <div><dt>Kehamilan ke-</dt><dd id="profil-preg-num">-</dd></div>
-          <div><dt>HPHT</dt><dd id="profil-hpht">-</dd></div>
-          <div><dt>HPL</dt><dd id="profil-hpl">-</dd></div>
-          <div><dt>Usia kehamilan</dt><dd id="profil-gestational">-</dd></div>
           <div><dt>Pengingat oleh</dt><dd id="profil-reminder-person">-</dd></div>
           <div><dt>Rutin obat</dt><dd id="profil-routine-meds">-</dd></div>
           <div><dt>Konsumsi teh</dt><dd id="profil-tea">-</dd></div>
@@ -3360,28 +3337,6 @@ function renderAdminUserDetailPage(waId, options = {}) {
             </div>
             <button type="button" id="aksi-simpan-jam">${icon("clock")}Simpan jam</button>
           </div>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="persalinan-title">
-        <div class="panel-head"><h2 id="persalinan-title">${icon("check")}Data persalinan</h2></div>
-        <div class="table-wrap">
-          <table>
-            <caption>Terisi setelah user menjawab pertanyaan validasi persalinan.</caption>
-            <thead><tr><th scope="col">Item</th><th scope="col">Nilai</th></tr></thead>
-            <tbody id="delivery-body" aria-busy="true"><tr><td colspan="2" class="muted">Memuat.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="nifas-title">
-        <div class="panel-head"><h2 id="nifas-title">${icon("clock")}Kunjungan nifas dan bayi</h2></div>
-        <div class="table-wrap">
-          <table>
-            <caption>Baris muncul setelah jadwal KF atau KN pertama dikirim.</caption>
-            <thead><tr><th scope="col">Kunjungan</th><th scope="col">Status</th><th scope="col">Tanggal</th></tr></thead>
-            <tbody id="pp-body" aria-busy="true"><tr><td colspan="3" class="muted">Memuat.</td></tr></tbody>
-          </table>
         </div>
       </section>
 
@@ -3462,17 +3417,13 @@ function renderAdminUserDetailPage(waId, options = {}) {
       }
       async function loadDetail() {
         setNote('');
-        setBusy('delivery-body', true);
-        setBusy('pp-body', true);
         try {
           const data = await fetchJson('/admin/api/users/' + encodeURIComponent(waId));
           const user = data.user || {};
           document.getElementById('name').textContent = fmt(user.name);
           document.getElementById('wa').textContent = fmt(user.wa_id);
           document.getElementById('status').textContent = STATUS_LABEL[user.status] || fmt(user.status);
-          document.getElementById('phase').textContent = PHASE_LABEL[classifyPhase(user)];
           document.getElementById('time').textContent = fmt(user.reminder_time);
-          document.getElementById('delivery-date').textContent = fmt(user.delivery_date_iso || user.delivery_date);
           document.getElementById('sudah').textContent = fmt(data.totals && data.totals.total_sudah);
           document.getElementById('belum').textContent = fmt(data.totals && data.totals.total_belum);
           const badgeNode = document.getElementById('status-badge');
@@ -3480,32 +3431,10 @@ function renderAdminUserDetailPage(waId, options = {}) {
           badgeNode.textContent = STATUS_LABEL[user.status] || fmt(user.status);
           document.getElementById('profil-age').textContent = user.age ? user.age + ' tahun' : '-';
           document.getElementById('profil-preg-num').textContent = user.pregnancy_number ? 'Ke-' + user.pregnancy_number : '-';
-          document.getElementById('profil-hpht').textContent = fmt(user.hpht || user.hpht_iso);
-          document.getElementById('profil-hpl').textContent = fmt(user.hpl_iso);
-          document.getElementById('profil-gestational').textContent = user.gestational_week ? user.gestational_week + ' minggu' : '-';
           document.getElementById('profil-reminder-person').textContent = fmt(user.reminder_person);
           document.getElementById('profil-routine-meds').textContent = user.routine_meds === 1 ? 'Ya' : user.routine_meds === 0 ? 'Tidak' : '-';
           document.getElementById('profil-tea').textContent = user.tea === 1 ? 'Ya' : user.tea === 0 ? 'Tidak' : '-';
-          const deliveryRows = [
-            ['Validasi HPL', user.delivery_hpl_response],
-            ['Validasi HPL +3', user.delivery_hpl3_response],
-            ['Tanggal melahirkan', user.delivery_date_iso || user.delivery_date],
-            ['Jam melahirkan', user.delivery_time],
-            ['Tempat melahirkan', user.delivery_place],
-            ['Penolong persalinan', user.delivery_birth_attendant],
-            ['Penyulit persalinan', user.delivery_with_complication],
-            ['Jenis kelamin bayi', user.baby_gender],
-            ['Berat badan bayi', user.baby_birth_weight],
-            ['Keluhan ibu', user.mother_current_complaint],
-            ['Data selesai diisi', user.delivery_data_completed_at],
-          ].filter((row) => row[1] !== null && row[1] !== undefined && row[1] !== '');
-          fillRows(document.getElementById('delivery-body'), deliveryRows, (r) => r, 'Belum ada data persalinan.', 2, true);
-          fillRows(document.getElementById('pp-body'), data.postpartum_logs || [],
-            (x) => [x.visit_label || x.visit_code, x.response || 'Pending', fmtDt(x.response_at || x.sent_at || x.due_at)],
-            'Belum ada riwayat kunjungan nifas.', 3, false);
         } catch (err) {
-          setBusy('delivery-body', false);
-          setBusy('pp-body', false);
           if (err.status === 404) setNote('Nomor ' + waId + ' tidak ditemukan di database.');
           else if (err.message !== 'Sesi berakhir') setNote('Gagal memuat detail: ' + err.message + '.');
         }
@@ -6472,28 +6401,6 @@ async function handleOnboardingAnswer(db, client, user, text) {
       return;
     }
     updates[question.field] = time;
-  } else if (question.field === "hpht") {
-    const parsed = parseHpht(text);
-    if (!parsed.iso) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Format HPHT belum sesuai. Contoh: 31-01-2024. \u{1F4C5}",
-      );
-      return;
-    }
-    if (
-      DateTime.fromISO(parsed.iso, { zone: TIMEZONE }) > nowWib().startOf("day")
-    ) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Tanggal HPHT belum boleh di masa depan. Isi tanggal hari pertama haid terakhir yang sudah lewat. Contoh: 31-01-2024. \u{1F4C5}",
-      );
-      return;
-    }
-    updates.hpht = parsed.raw;
-    updates.hpht_iso = parsed.iso;
   } else if (question.field === "name") {
     const nameValue = text.trim();
     const lower = nameValue.toLowerCase();
@@ -6812,7 +6719,7 @@ async function handleCommand(db, client, user, text) {
     }
     // Baris user bisa sudah ada karena operator menambah nomor dari panel atau perintah
     // admin, jadi profil yang belum lengkap harus didata ulang dari pertanyaan pertama.
-    const profileIncomplete = !user.name || !user.hpht_iso;
+    const profileIncomplete = !user.name;
     if (profileIncomplete) {
       await updateUser(db, user.wa_id, {
         allow_remindcare: 1,
@@ -6839,9 +6746,9 @@ async function handleCommand(db, client, user, text) {
       await updateUser(db, user.wa_id, {
         allow_remindcare: 1,
         status: "onboarding",
-        onboarding_step: 9,
+        onboarding_step: QUESTIONS.length,
       });
-      await sendText(client, user.wa_id, getQuestionText(QUESTIONS[8], user));
+      await sendText(client, user.wa_id, getQuestionText(QUESTIONS[QUESTIONS.length - 1], user));
       return true;
     }
 
@@ -8132,7 +8039,11 @@ async function startAdminServer(db) {
     res.locals.nonce = nonce;
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "no-referrer");
+    // 'same-origin' (bukan 'no-referrer'): nilai 'no-referrer' membuat browser mengirim
+    // header Origin: null pada POST form satu-origin, sehingga proteksi CSRF
+    // sameHostRequest menolak login sendiri. 'same-origin' tetap tidak membocorkan
+    // referrer ke situs lain.
+    res.setHeader("Referrer-Policy", "same-origin");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     // CORS hanya untuk endpoint registrasi publik, supaya landing page yang di-host di
     // GitHub Pages bisa memanggil API ini. Origin dibatasi ke daftar putih; panel admin
@@ -8275,6 +8186,15 @@ async function startAdminServer(db) {
           const base = magicAuth.magicLinkBaseUrl() || `${req.protocol}://${req.get("host")}`;
           const link = `${base}/admin/auth?token=${encodeURIComponent(token)}`;
           await magicAuth.sendMagicLinkEmail(email, link, expiresAt);
+          // Uji lokal tanpa SMTP: tautan juga ditulis ke berkas supaya bisa dibuka tanpa email.
+          if (/^(1|true)$/i.test(String(process.env.SMTP_JSON_TRANSPORT || ""))) {
+            try {
+              fs.writeFileSync(MAGIC_LINK_PATH, `${link}${os.EOL}`, { mode: 0o600 });
+              console.log(`Tautan masuk (uji lokal) ditulis ke: ${MAGIC_LINK_PATH}`);
+            } catch (err) {
+              console.error("Gagal menulis berkas tautan masuk:", err.message);
+            }
+          }
           clearAdminLoginFailures(ip);
         } catch (err) {
           console.error("Gagal mengirim tautan masuk:", err.message);

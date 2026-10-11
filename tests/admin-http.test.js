@@ -99,6 +99,19 @@ async function run() {
     assert.ok(!res.body.includes("<h2>"), "tidak ada h2 yang melompati tingkat");
   });
 
+  // Regresi: 'Referrer-Policy: no-referrer' membuat browser mengirim 'Origin: null'
+  // pada POST form satu-origin, sehingga proteksi CSRF sameHostRequest menolak login
+  // sendiri. Uji HTTP biasa tidak menangkap ini karena selalu mengirim Origin eksplisit.
+  await test("halaman login memakai Referrer-Policy same-origin, bukan no-referrer", async () => {
+    const res = await request("GET", "/admin/login");
+    assert.notStrictEqual(
+      String(res.headers["referrer-policy"] || "").toLowerCase(),
+      "no-referrer",
+      "no-referrer merusak login form (Origin menjadi null)",
+    );
+    assert.strictEqual(res.headers["referrer-policy"], "same-origin");
+  });
+
   await test("halaman dan API tanpa sesi ditolak", async () => {
     const halaman = await request("GET", "/admin");
     assert.strictEqual(halaman.status, 302);

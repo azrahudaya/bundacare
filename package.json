@@ -6,10 +6,13 @@
     "start": "node index.js",
     "test": "node tests/parse.test.js && node tests/send-guard.test.js && node tests/hardening.test.js && node tests/p1-hardening.test.js && node tests/p2-hardening.test.js && node tests/p4-hardening.test.js && node tests/p3-hardening.test.js && node tests/pairing.test.js && node tests/fix-reminder.test.js && node tests/expose-function.test.js && node tests/flows.test.js && node tests/admin-http.test.js && node tests/magic-link.test.js && node tests/watchdog.test.js && node tests/poll-vote-and-fixes.test.js && node tests/registration.test.js",
     "backup": "node scripts/backup-db.js",
+    "clear-data": "node scripts/clear-data.js",
     "postinstall": "patch-package",
     "watchdog": "node scripts/watchdog.js",
     "test:ui": "bash tests/ui/run.sh",
-    "serve:site": "node scripts/serve-site.js"
+    "serve:site": "node scripts/serve-site.js",
+    "emoji": "node scripts/copy-emoji.js",
+    "articles": "node scripts/normalize-articles.js"
   },
   "keywords": [
     "whatsapp",
@@ -33,5 +36,8 @@
     "qrcode-terminal": "^0.12.0",
     "sqlite3": "^6.0.1",
     "whatsapp-web.js": "1.34.7"
+  },
+  "devDependencies": {
+    "@iconify-json/fluent-emoji": "^1.2.7"
   }
 }
