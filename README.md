@@ -24,8 +24,6 @@ Automated maternal health WhatsApp bot that manages daily iron supplement (table
 |                                                             |
 |  [Traffic Guard]      : Rate limiter, warm-up, breaker      |
 |  [Adherence Core]     : Scheduled daily FE reminder poll    |
-|  [Delivery Tracking]  : Automated check at week 39+ (HPL)   |
-|  [Postpartum Care]    : KF1, KF2, KF3 visit scheduling      |
 |  [Watchdog Timer]     : Process heartbeat and alerts        |
 |  [Storage]            : SQLite3 local database              |
 +------------------------------|------------------------------+
@@ -41,9 +39,8 @@ Automated maternal health WhatsApp bot that manages daily iron supplement (table
 
 ## Key Features
 
-- Daily supplement reminders: automated morning and evening WhatsApp polls to track iron tablet compliance with deterministic per-user question variations.
+- Daily supplement reminders: automated WhatsApp reminders to track iron tablet (TTD) compliance, with deterministic per-user question variations.
 - Natural language parsing: recognizes casual Indonesian responses (ya, sudah, belum, baru mau minum) and validates custom reminder time preferences.
-- Pregnancy and delivery lifecycle: calculates estimated delivery date (HPL) from last menstrual period (HPHT), initiates delivery verification at week 39+, and transitions into postpartum visit reminders (KF1, KF2, KF3).
 - WhatsApp traffic hardening: strict rate limiting, serial message queueing, send-time jitter, session warm-up curve, and circuit breakers to prevent account restrictions.
 - Web admin dashboard: secure operator portal featuring 7-day adherence charts, inactive patient lists, CSRF protection, and CSV export.
 - Passwordless admin login: magic link sent by email (Gmail SMTP), single-use short-lived tokens, sessions stored in SQLite so they survive restarts.
@@ -124,6 +121,10 @@ See [`deploy/INSTALL.md`](deploy/INSTALL.md) for full deployment instructions.
 
 - Technical specifications and flows: [`docs/technical-guide.pdf`](docs/technical-guide.pdf).
 - Operational deployment guide: [`deploy/INSTALL.md`](deploy/INSTALL.md).
+
+## Credits
+
+- Emoji stickers in the landing page hero: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft, licensed [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE). The used SVGs are extracted into `site/images/emoji/`; regenerate with `npm run emoji`.
 
 ## License
 
