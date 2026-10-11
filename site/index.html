@@ -19,7 +19,7 @@
       <nav class="header-nav" aria-label="Navigasi utama">
         <a href="#cara-kerja">Cara kerja</a>
         <a href="#bacaan">Bacaan</a>
-        <a class="nav-action" href="#daftar">Daftar pengingat</a>
+        <a class="nav-action" href="#daftar">Ikut pengingat</a>
       </nav>
     </div>
   </header>
@@ -28,16 +28,26 @@
     <section class="hero" aria-labelledby="judul">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <h1 id="judul">Daftar di sini.<br>Pengingatnya lewat <span>WhatsApp.</span></h1>
-          <p>Pengingat tablet FE dan jadwal kontrol pasca melahirkan via WhatsApp.</p>
-          <a class="button button-cream" href="#daftar">Daftar pengingat</a>
-          <p class="hero-note">Pilot bertahap. Cek status sebelum isi formulir.</p>
+          <h1 id="judul">Tablet tambah darah tiap hari, diingatkan lewat <span>WhatsApp.</span></h1>
+          <p>Pengingat tablet tambah darah harian lewat WhatsApp, pada jam yang Ibu pilih.</p>
+          <a class="button button-cream" href="#daftar">Ikut pengingat</a>
         </div>
-        <div class="hero-visual" aria-label="Ilustrasi Bundacare">
-          <div class="placeholder-box">
-            <img src="images/placeholder.svg" alt="" width="120" height="120">
-            <span>Ilustrasi</span>
-          </div>
+        <div class="hero-visual">
+          <figure class="hero-card">
+            <!-- Emoji stiker: Fluent Emoji (github.com/microsoft/fluentui-emoji), MIT.
+                 Dekoratif, jadi aria-hidden dan tidak menangkap klik. Ditaruh di dalam
+                 kartu supaya posisinya selalu menempel ke tepi kartu. -->
+            <div class="hero-stickers" aria-hidden="true">
+              <img class="hero-sticker" data-emoji="pregnant" src="images/emoji/pregnant-woman.svg" alt="" width="88" height="88" decoding="async">
+              <img class="hero-sticker" data-emoji="pill" src="images/emoji/pill.svg" alt="" width="64" height="64" decoding="async">
+              <img class="hero-sticker" data-emoji="alarm" src="images/emoji/alarm.svg" alt="" width="68" height="68" decoding="async">
+            </div>
+            <img
+              src="images/hero-bundacare.webp"
+              alt="Contoh pesan WhatsApp dari BundaCare: &quot;Halo Ibu, ini saatnya minum tablet Fe&quot;"
+              width="1254" height="1254"
+              loading="eager" decoding="async" fetchpriority="high">
+          </figure>
         </div>
       </div>
     </section>
@@ -45,7 +55,6 @@
     <section id="cara-kerja" class="flow-section" aria-labelledby="cara-judul">
       <div class="wrap flow-grid">
         <div class="flow-intro">
-          <p class="section-label">Cara kerja</p>
           <h2 id="cara-judul">Dari website ke WhatsApp, tanpa pendataan lewat chat.</h2>
         </div>
         <ol class="flow-list">
@@ -53,7 +62,7 @@
             <span class="flow-num">01</span>
             <div>
               <h3>Isi data</h3>
-              <p>Nama, nomor WhatsApp, hari pertama haid terakhir (HPHT), dan jam pengingat.</p>
+              <p>Nama, nomor WhatsApp, dan jam pengingat yang Ibu inginkan.</p>
             </div>
           </li>
           <li>
@@ -77,9 +86,8 @@
     <section id="daftar" class="signup-section" aria-labelledby="daftar-judul">
       <div class="wrap signup-grid">
         <div class="signup-intro">
-          <h2 id="daftar-judul" tabindex="-1">Atur pengingat ibu.</h2>
-          <p>Siapkan nomor WhatsApp yang ibu pakai sendiri. Pengingat baru berjalan setelah verifikasi dan persetujuan.</p>
-          <p class="small-note">HPHT = hari pertama haid terakhir. Bundacare bukan layanan darurat atau pengganti tenaga kesehatan.</p>
+          <h2 id="daftar-judul" tabindex="-1">Ikut pengingat WhatsApp.</h2>
+          <p>Isi nama, nomor WhatsApp, dan jam pengingat. Pengingat aktif setelah diverifikasi dan disetujui.</p>
         </div>
         <div class="signup-panel">
           <div id="availability" class="availability" role="status" aria-live="polite">Memeriksa ketersediaan…</div>
@@ -95,25 +103,17 @@
               <span class="field-help" id="phone-help">Gunakan nomor yang akan dipakai mengirim verifikasi.</span>
               <span class="field-error" id="phone-error"></span>
             </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="hpht">Hari pertama haid terakhir (HPHT)</label>
-                <input id="hpht" name="hpht" type="date" required disabled aria-describedby="hpht-error">
-                <span class="field-error" id="hpht-error"></span>
-              </div>
-              <div class="field">
-                <label for="reminderTime">Jam pengingat</label>
-                <input id="reminderTime" name="reminderTime" type="time" required disabled aria-describedby="time-error">
-                <span class="field-error" id="time-error"></span>
-              </div>
+            <div class="field">
+              <label for="reminderTime">Jam pengingat</label>
+              <input id="reminderTime" name="reminderTime" type="time" required disabled aria-describedby="time-error">
+              <span class="field-error" id="time-error"></span>
             </div>
             <div class="consent-row">
               <input id="consent" name="consent" type="checkbox" required disabled aria-describedby="consent-error">
-              <label for="consent">Saya setuju data ini dipakai untuk pendaftaran, verifikasi, dan pengingat. Saya sudah membaca <a href="privasi.html" target="_blank">informasi privasi</a>.</label>
+              <label for="consent">Saya setuju data ini dipakai untuk pendaftaran, verifikasi, dan pengingat. Saya sudah membaca <a href="privasi.html" target="_blank">kebijakan privasi</a>.</label>
             </div>
             <span class="field-error consent-error" id="consent-error"></span>
-            <p class="privacy-note">Bundacare bukan layanan darurat atau pengganti tenaga kesehatan.</p>
-            <button id="submit-button" class="button button-berry" type="submit" disabled>Daftar pengingat</button>
+            <button id="submit-button" class="button button-berry" type="submit" disabled>Kirim pendaftaran</button>
             <p id="form-feedback" class="form-feedback" role="alert" tabindex="-1" hidden></p>
           </form>
 
@@ -136,24 +136,82 @@
       </div>
     </section>
 
-    <section id="bacaan" class="articles wrap" aria-labelledby="artikel-judul">
-      <div class="articles-heading">
-        <p class="section-label">Bacaan</p>
-        <h2 id="artikel-judul">Baca saat perlu.</h2>
-      </div>
-      <div class="article-list">
-        <a href="https://remindcares.web.app/cara-minum-tablet-fe-yang-benar.html" target="_blank" rel="noopener noreferrer"><span>Kehamilan</span><strong>Cara minum tablet FE yang benar</strong><span class="article-open">Buka ↗</span></a>
-        <a href="https://remindcares.web.app/tanda-tanda-persalinan.html" target="_blank" rel="noopener noreferrer"><span>Persalinan</span><strong>Tanda-tanda persalinan</strong><span class="article-open">Buka ↗</span></a>
-        <a href="https://remindcares.web.app/kunjungan-masa-nifas.html" target="_blank" rel="noopener noreferrer"><span>Setelah melahirkan</span><strong>Kunjungan masa nifas</strong><span class="article-open">Buka ↗</span></a>
+    <section id="bacaan" class="articles" aria-labelledby="artikel-judul">
+      <div class="wrap">
+        <div class="articles-heading">
+          <h2 id="artikel-judul">Baca saat perlu.</h2>
+          <p class="articles-lead">Ringkasan bersumber dari materi Kementerian Kesehatan, ditulis singkat dan apa adanya.</p>
+        </div>
+        <div class="article-list">
+          <a href="artikel-tablet-tambah-darah.html">
+            <img class="article-thumb" src="images/artikel/thumb/tablet-tambah-darah.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Cara minum tablet tambah darah yang benar</strong>
+            <p>Dosis dan cara minum agar zat besi terserap optimal.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+          <a href="artikel-anemia-ibu-hamil.html">
+            <img class="article-thumb" src="images/artikel/thumb/anemia-ibu-hamil.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Anemia pada ibu hamil</strong>
+            <p>Penyebab, gejala, dan cara mencegah anemia saat hamil.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+          <a href="artikel-gizi-ibu-hamil.html">
+            <img class="article-thumb" src="images/artikel/thumb/gizi-ibu-hamil.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Gizi seimbang ibu hamil</strong>
+            <p>Menu seimbang untuk kebutuhan ibu dan janin.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+          <a href="artikel-tanda-persalinan.html">
+            <img class="article-thumb" src="images/artikel/thumb/tanda-persalinan.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Tanda-tanda persalinan</strong>
+            <p>Kenali tanda persalinan dan tanda bahaya kehamilan.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+          <a href="artikel-kunjungan-nifas.html">
+            <img class="article-thumb" src="images/artikel/thumb/kunjungan-nifas.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Kunjungan masa nifas</strong>
+            <p>Jadwal empat kali pemeriksaan ibu dan bayi setelah lahir.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+          <a href="artikel-menyusui.html">
+            <img class="article-thumb" src="images/artikel/thumb/menyusui.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
+            <strong>Menyusui dan ASI eksklusif</strong>
+            <p>ASI eksklusif enam bulan dan cara menyusui yang benar.</p>
+            <span class="article-open">Baca ↗</span>
+          </a>
+        </div>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="wrap footer-inner">
-      <span class="footer-brand">bundacare.</span>
-      <a href="privasi.html">Informasi privasi pilot</a>
-      <a href="#isi">Kembali ke atas</a>
+    <div class="wrap footer-grid">
+      <div>
+        <a class="footer-brand" href="index.html">bundacare.</a>
+        <p class="footer-tagline">Pengingat tablet tambah darah dan kontrol kesehatan ibu lewat WhatsApp.</p>
+      </div>
+      <div>
+        <p class="footer-heading">Bacaan</p>
+        <div class="footer-col">
+          <a href="artikel-tablet-tambah-darah.html">Tablet tambah darah</a>
+          <a href="artikel-anemia-ibu-hamil.html">Anemia pada ibu hamil</a>
+          <a href="artikel-gizi-ibu-hamil.html">Gizi ibu hamil</a>
+          <a href="artikel-tanda-persalinan.html">Tanda-tanda persalinan</a>
+          <a href="artikel-kunjungan-nifas.html">Kunjungan masa nifas</a>
+          <a href="artikel-menyusui.html">Menyusui</a>
+        </div>
+      </div>
+      <div>
+        <p class="footer-heading">Informasi</p>
+        <div class="footer-col">
+          <a href="tentang.html">Tentang</a>
+          <a href="privasi.html">Kebijakan privasi</a>
+          <a href="#isi">Kembali ke atas</a>
+        </div>
+      </div>
+    </div>
+    <div class="wrap footer-bottom">
+      <p>© 2026 bundacare.</p>
     </div>
   </footer>
 </body>

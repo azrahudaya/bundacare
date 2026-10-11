@@ -1,4 +1,17 @@
 /* Bundacare landing — warm, bold, simple */
+/*
+  Skala huruf (biar konsisten, jangan tambah nilai baru tanpa alasan):
+    3.2rem  judul hero (h1)
+    2.2rem  judul bagian (h2) — otomatis jadi 1.8rem di layar < 768px
+    1.6rem  brand di header
+    1.4rem  brand di footer
+    1.1rem  judul kartu (h3 / strong)
+    1.15rem paragraf pengantar hero
+    1rem    tombol, isi kolom formulir
+    0.95rem paragraf kartu & catatan sekunder
+    0.9rem  teks tautan dan label kecil
+    0.85rem teks bantuan paling kecil (catatan kaki, meta)
+*/
 @font-face {
   font-family: "Bricolage Grotesque";
   src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2");
@@ -25,6 +38,8 @@
   --white: #ffffff;
   --gray: #E5E1E8;
   --radius: 18px;
+  --radius-sm: 12px;
+  --section-y: 96px;
   --shadow: 0 10px 32px rgba(36, 32, 45, 0.08);
 }
 
@@ -54,6 +69,24 @@ h1, h2, h3 {
   position: absolute;
   left: -9999px;
   top: auto;
+}
+
+.skip-link:focus {
+  left: 16px;
+  top: 16px;
+  z-index: 100;
+  background: var(--berry);
+  color: var(--white);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--berry);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 /* Header */
@@ -89,6 +122,9 @@ h1, h2, h3 {
   font-weight: 600;
   font-size: 0.95rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 .header-nav a:hover { color: var(--berry); }
@@ -147,17 +183,63 @@ h1, h2, h3 {
 
 /* Hero */
 .hero {
+  position: relative;
+  overflow: hidden;
   background: var(--berry);
   color: var(--white);
   padding: 80px 0 96px;
   border-radius: 0 0 56px 56px;
 }
 
+/* Emoji stiker menempel di kartu HP. Dekoratif (aria-hidden), jadi tidak boleh
+   menangkap klik. */
+.hero-stickers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hero-sticker {
+  position: absolute;
+  opacity: 1;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+  animation: hero-sticker-pop 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Posisi dalam persen relatif terhadap kotak kartu, jadi tetap menempel di tepi
+   kartu pada semua lebar layar. Negatif = keluar sedikit dari tepi kartu. */
+.hero-sticker[data-emoji="pregnant"] { top: -6%; left: -10%; width: 88px; height: 88px; animation-delay: 0s; }
+.hero-sticker[data-emoji="pill"]     { top: 40%; left: -6%;  width: 64px; height: 64px; animation-delay: -2.2s; }
+.hero-sticker[data-emoji="alarm"]    { top: 6%;  right: -7%; width: 68px; height: 68px; animation-delay: -4.2s; }
+
+/* Di layar sempit kartu hampir selebar layar, jadi ruang di luar kartu tipis.
+   Emoji dikecilkan dan ditarik lebih masuk supaya tidak terpotong tepi layar,
+   tetapi tetap menempel di tepi kartu (menimpa bingkai putih gambar, bukan UI). */
+@media (max-width: 767px) {
+  .hero-sticker[data-emoji="pregnant"] { top: -4%; left: -4%; width: 56px; height: 56px; }
+  .hero-sticker[data-emoji="pill"]     { top: 44%; left: -3%; width: 46px; height: 46px; }
+  .hero-sticker[data-emoji="alarm"]    { top: 4%;  right: -3%; width: 46px; height: 46px; }
+}
+
+/* Konten hero harus di atas emoji. */
 .hero-grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
   align-items: center;
+}
+
+@keyframes hero-sticker-pop {
+  0%, 100% { transform: translateY(0) rotate(-6deg) scale(1); }
+  50%      { transform: translateY(-12px) rotate(6deg) scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-sticker { animation: none; }
 }
 
 .hero-copy h1 {
@@ -176,46 +258,37 @@ h1, h2, h3 {
   max-width: 460px;
 }
 
-.hero-note {
-  font-size: 0.85rem;
-  color: rgba(255,255,255,0.75);
-  margin-top: 40px;
-  line-height: 1.5;
-}
-
 .hero-visual {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: 20px;
 }
 
-.placeholder-box {
+.hero-card {
+  position: relative;
+  margin: 0;
   width: 100%;
   max-width: 420px;
-  aspect-ratio: 4 / 3;
-  background: rgba(255,255,255,0.12);
-  border: 3px dashed rgba(255,255,255,0.4);
+  aspect-ratio: 1 / 1;
+  background: var(--white);
   border-radius: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: rgba(255,255,255,0.7);
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 18px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.22);
 }
 
-.placeholder-box img {
-  width: 80px;
-  height: 80px;
-  opacity: 0.7;
+/* Hanya gambar utama di dalam kartu, bukan emoji stiker. */
+.hero-card > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* Flow */
 .flow-section {
-  padding: 100px 0;
+  padding: var(--section-y) 0;
   background: var(--cream);
 }
 
@@ -234,16 +307,7 @@ h1, h2, h3 {
 .flow-intro h2 {
   font-size: 2.2rem;
   line-height: 1.2;
-  margin: 12px 0 0;
-}
-
-.section-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--berry);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 .flow-list {
@@ -288,7 +352,7 @@ h1, h2, h3 {
 
 /* Signup */
 .signup-section {
-  padding: 80px 0;
+  padding: var(--section-y) 0;
   background: var(--white);
 }
 
@@ -301,6 +365,7 @@ h1, h2, h3 {
 
 .signup-intro h2 {
   font-size: 2.2rem;
+  line-height: 1.2;
   margin: 0 0 16px;
 }
 
@@ -391,23 +456,20 @@ h1, h2, h3 {
 .consent-row input {
   width: 22px;
   height: 22px;
+  flex: none;
   margin-top: 2px;
   accent-color: var(--berry);
+  cursor: pointer;
 }
 
 .consent-row label {
   font-size: 0.9rem;
   color: var(--charcoal);
   line-height: 1.5;
+  cursor: pointer;
 }
 
 .consent-row a { color: var(--berry); }
-
-.privacy-note {
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin: 0 0 24px;
-}
 
 .signup-panel .button-berry {
   width: 100%;
@@ -451,7 +513,7 @@ h1, h2, h3 {
 
 /* Articles */
 .articles {
-  padding: 100px 0;
+  padding: var(--section-y) 0;
   background: var(--cream);
 }
 
@@ -459,7 +521,14 @@ h1, h2, h3 {
 
 .articles-heading h2 {
   font-size: 2.2rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.articles-lead {
+  color: var(--muted);
   margin: 12px 0 0;
+  max-width: 52ch;
 }
 
 .article-list {
@@ -471,85 +540,201 @@ h1, h2, h3 {
 .article-list a {
   display: block;
   background: var(--white);
-  padding: 28px;
+  padding: 0 0 28px;
   border-radius: var(--radius);
   text-decoration: none;
   color: var(--charcoal);
   box-shadow: var(--shadow);
   transition: transform 0.15s;
+  overflow: hidden;
 }
 
 .article-list a:hover { transform: translateY(-4px); }
 
-.article-list span {
+/* Thumbnail penuh di tepi atas kartu. */
+.article-thumb {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--berry);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 12px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  margin-bottom: 20px;
 }
 
+/* Teks kartu diberi jarak dalam supaya tidak menempel ke tepi kartu. */
+.article-list strong,
+.article-list p,
+.article-list .article-open {
+  padding: 0 28px;
+}
+
+/* Judul artikel: sejajar dengan judul kartu di bagian lain (1.1rem). */
 .article-list strong {
   display: block;
   font-size: 1.1rem;
-  margin-bottom: 16px;
-  line-height: 1.3;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 8px;
 }
 
+/* Deskripsi singkat: teks sekunder, sejajar dengan paragraf kartu lain. */
+.article-list p {
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+/* Tautan aksi: sedikit lebih kecil dari judul, warna aksen supaya terlihat bisa diklik. */
 .article-open {
-  font-size: 0.85rem !important;
-  color: var(--muted) !important;
-  text-transform: none !important;
-  font-weight: 600 !important;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--berry);
 }
 
 /* Footer */
 .site-footer {
   background: var(--charcoal);
   color: var(--white);
-  padding: 40px 0 48px;
+  padding: 56px 0 32px;
 }
 
-.footer-inner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 40px;
-  flex-wrap: wrap;
 }
 
-.footer-brand {
+/* .site-footer a punya spesifisitas lebih tinggi dari .footer-brand, jadi brand
+   harus ditulis lebih spesifik supaya ukurannya tidak ikut mengecil jadi ukuran link. */
+.site-footer .footer-brand {
   font-family: "Bricolage Grotesque", sans-serif;
   font-weight: 800;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
+  color: var(--white);
+  text-decoration: none;
+}
+
+.footer-tagline {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  max-width: 32ch;
+  margin: 12px 0 0;
+}
+
+.footer-heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 12px;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .site-footer a {
-  color: var(--white);
+  color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
   font-size: 0.9rem;
-  white-space: nowrap;
+  width: fit-content;
 }
 
-.site-footer a:hover { text-decoration: underline; }
+.site-footer a:hover { color: var(--white); text-decoration: underline; }
 
-/* Privacy */
-.privacy-page {
+.footer-bottom {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.footer-bottom p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Halaman dokumen (privasi, tentang, artikel) */
+.doc-page {
   max-width: 720px;
-  margin: 48px auto 80px;
+  margin: 40px auto 80px;
   padding: 0 24px;
 }
 
-.privacy-page h1 { font-size: 2.2rem; margin-bottom: 16px; }
-.privacy-page h2 { font-size: 1.2rem; margin-top: 32px; margin-bottom: 10px; }
-.privacy-page p { color: var(--muted); margin: 0 0 14px; }
-.privacy-page a { color: var(--berry); }
-.privacy-updated { font-size: 0.85rem; margin-top: 40px; color: var(--muted); }
+.doc-page h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 16px; }
+.doc-page h2 { font-size: 1.35rem; margin: 36px 0 12px; }
+.doc-page h3 { font-size: 1.05rem; margin: 24px 0 8px; }
+.doc-page p, .doc-page li { color: var(--charcoal); margin: 0 0 14px; }
+.doc-page ul, .doc-page ol { padding-left: 22px; margin: 0 0 16px; }
+.doc-page li { margin-bottom: 8px; }
+.doc-page a { color: var(--berry); }
+.doc-page figure { margin: 24px 0; }
+.doc-page figure img { width: 100%; height: auto; border-radius: var(--radius-sm); display: block; }
+.doc-page figcaption { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
+.doc-lead { font-size: 1.1rem; color: var(--muted); margin-bottom: 28px; }
+.doc-updated { font-size: 0.85rem; margin-top: 40px; color: var(--muted); }
+.doc-back { display: inline-block; margin-bottom: 24px; font-size: 0.9rem; font-weight: 600; color: var(--berry); text-decoration: none; }
+.doc-back:hover { text-decoration: underline; }
+
+.source-list { list-style: none; padding: 0; }
+.source-list li {
+  border-top: 1px solid var(--gray);
+  padding: 12px 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.source-list li:first-child { border-top: none; }
+.source-list span { display: block; color: var(--muted); font-size: 0.82rem; }
+
+.callout {
+  background: var(--cream);
+  border-left: 4px solid var(--berry);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin: 24px 0;
+}
+.callout p { margin: 0; }
+
+/* Artikel: kelas dari isi artikel yang perlu gaya situs. */
+.doc-page .meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+.doc-page .ringkasan {
+  font-size: 1.08rem;
+  color: var(--charcoal);
+  border-left: 4px solid var(--berry);
+  padding: 4px 0 4px 16px;
+  margin: 0 0 28px;
+}
+.doc-page .sumber {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gray);
+}
+.doc-page .sumber h2 { border: none; margin-top: 0; }
+.doc-page .sumber ul { list-style: none; padding: 0; }
+.doc-page .sumber li {
+  border-top: 1px solid var(--gray);
+  padding: 12px 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.doc-page .sumber li:first-child { border-top: none; }
 
 /* Responsive */
 @media (max-width: 768px) {
+  :root { --section-y: 64px; }
+
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+  .doc-page h1 { font-size: 1.8rem; }
+
   .hero-grid,
   .flow-grid,
   .signup-grid,
@@ -564,9 +749,15 @@ h1, h2, h3 {
 
   .header-nav a:not(.nav-action) { display: none; }
 
+  /* Sticky hanya berguna saat dua kolom berdampingan; di satu kolom ia mengunci
+     judul di atas kartu dan terasa aneh. */
+  .flow-intro { position: static; top: auto; }
+
   .flow-intro h2,
   .signup-intro h2,
   .articles-heading h2 { font-size: 1.8rem; }
+
+  .flow-grid, .signup-grid { gap: 32px; }
 
   .signup-panel { padding: 24px; }
   .field-row { grid-template-columns: 1fr; }

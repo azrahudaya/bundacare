@@ -37,8 +37,8 @@ app.get("/api/registrations/availability", (_req, res) => {
 });
 
 app.post("/api/registrations", (req, res) => {
-  const { name, phone, hpht, reminderTime, consent } = req.body || {};
-  if (!name || !phone || !hpht || !reminderTime || !consent) {
+  const { name, phone, reminderTime, consent } = req.body || {};
+  if (!name || !phone || !reminderTime || !consent) {
     return res.status(400).json({ error: "Data tidak lengkap." });
   }
   const requestId = randomId();
@@ -48,7 +48,6 @@ app.post("/api/registrations", (req, res) => {
     status: "pending_verification",
     name,
     phone,
-    hpht,
     reminderTime,
     code,
     createdAt: new Date().toISOString(),
@@ -74,6 +73,14 @@ app.get("/api/registrations/status", (req, res) => {
     record.status = "pending_approval";
   }
   res.json({ status: record.status });
+});
+
+// Di lokal, landing harus memanggil mock API satu origin, bukan api.bundacare.site.
+// config.js asli mengarah ke produksi, jadi di sini di-override supaya formulir terbuka.
+app.get("/config.js", (_req, res) => {
+  res.type("application/javascript").send(
+    'window.BUNDACARE_API_BASE = "";\n',
+  );
 });
 
 app.use(express.static(path.join(__dirname, "..", "site"), { index: "index.html" }));

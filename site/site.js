@@ -18,7 +18,7 @@ const checkButton = document.querySelector("#check-status");
 const submitButton = document.querySelector("#submit-button");
 const statusTitle = document.querySelector("#status-title");
 const statusDescription = document.querySelector("#status-description");
-const fields = ["name", "phone", "hpht", "reminderTime", "consent"].map(id => document.getElementById(id));
+const fields = ["name", "phone", "reminderTime", "consent"].map(id => document.getElementById(id));
 let requestId = "";
 let verifying = false;
 const pendingKey = "bundacare-pending";
@@ -88,19 +88,16 @@ function validate() {
   const name = document.getElementById("name").value.trim();
   const rawPhone = document.getElementById("phone").value.replace(/[\s()+.-]/g, "");
   const phone = rawPhone.startsWith("0") ? `62${rawPhone.slice(1)}` : rawPhone;
-  const hpht = form.hpht.value;
   const reminderTime = form.reminderTime.value;
   let ok = true;
   const fail = (id, msg) => { showError(id, msg); ok = false; };
 
   if (name.length < 2 || name.length > 100) fail("name", "Nama minimal 2 huruf.");
   if (!/^628\d{8,12}$/.test(phone)) fail("phone", "Nomor tidak valid.");
-  const d = new Date(`${hpht}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(hpht) || isNaN(d) || d > new Date()) fail("hpht", "Tanggal tidak valid.");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) fail("reminderTime", "Pilih jam.");
   if (!form.consent.checked) fail("consent", "Centang persetujuan.");
 
-  return ok ? { name, phone, hpht, reminderTime, consent: true } : null;
+  return ok ? { name, phone, reminderTime, consent: true } : null;
 }
 
 form.addEventListener("submit", async e => {
