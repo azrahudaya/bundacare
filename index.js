@@ -2535,7 +2535,7 @@ function renderAdminDashboardPage(options = {}) {
           </div>
         </div>
         <p class="note" id="users-note" hidden style="padding:10px 12px 0"></p>
-        <p class="muted" style="padding:0 12px 10px">Pengingat tablet tambah darah harian lewat WhatsApp.</p>
+        <p class="muted" style="padding:0 12px 10px">Pengingat FE tablet tambah darah harian lewat WhatsApp.</p>
         <div class="table-wrap">
           <table>
             <caption id="users-count">memuat</caption>

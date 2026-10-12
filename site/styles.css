@@ -98,6 +98,8 @@ h1, h2, h3 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .brand {
@@ -363,6 +365,14 @@ h1, h2, h3 {
   align-items: start;
 }
 
+/* Grid item default min-width:auto = min-content, yang bisa menahan penyusutan dan
+   membuat meluber di lebar sangat sempit. Nol-kan supaya trek boleh mengecil. */
+.hero-grid > *,
+.flow-grid > *,
+.signup-grid > * {
+  min-width: 0;
+}
+
 .signup-intro h2 {
   font-size: 2.2rem;
   line-height: 1.2;
@@ -416,8 +426,14 @@ h1, h2, h3 {
 }
 
 .field input:focus {
-  outline: none;
   border-color: var(--berry);
+}
+
+/* Jangan matikan outline di sini: aturan ini menang atas :focus-visible global
+   (spesifisitas lebih tinggi), sehingga fokus keyboard jadi tak terlihat.
+   Cukup ganti warna bingkai; cincin fokus ditangani aturan :focus-visible. */
+.field input:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .field input:disabled {
@@ -761,4 +777,12 @@ h1, h2, h3 {
 
   .signup-panel { padding: 24px; }
   .field-row { grid-template-columns: 1fr; }
+}
+
+/* Layar sangat sempit (di bawah minimum reflow WCAG 320px). Kartu langkah
+   memakai padding + nomor berlebar minimum, jadi kurangi agar tidak meluber. */
+@media (max-width: 300px) {
+  .wrap { padding: 0 12px; }
+  .flow-list li { padding: 16px; gap: 10px; }
+  .flow-num { min-width: 24px; font-size: 1.3rem; }
 }

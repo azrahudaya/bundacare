@@ -48,7 +48,7 @@ Automated maternal health WhatsApp bot that manages daily iron supplement (table
 
 ## Pendaftaran web pilot
 
-Ibu mengisi formulir di website, mengirim satu kode dari nomor WhatsApp sendiri, lalu menunggu persetujuan pengelola. Fitur ini belum dibuka pada bundacare.site: endpoint publik mati secara default dan situs statis belum dihubungkan ke API di server bot. Kode yang lolos tes lokal belum membuktikan pesan terkirim pada sesi WhatsApp sungguhan.
+Ibu mengisi formulir di website, mengirim satu kode dari nomor WhatsApp sendiri, lalu menunggu persetujuan pengelola. Landing di `bundacare.site` sudah terhubung ke API di `api.bundacare.site`, tetapi pendaftaran belum dibuka: `PUBLIC_REGISTRATION_ENABLED=0` dan nomor bot belum diisi, jadi formulir menampilkan "Pendaftaran belum dibuka."
 
 Kontrak API dan penyiapan pilot ada di [`deploy/INSTALL.md`](deploy/INSTALL.md). Antarmuka dan arah visual ada di [`DESIGN.md`](DESIGN.md). Uji integrasi browser tanpa mengirim WA nyata: `node tests/registration-browser.test.js` (memerlukan Google Chrome; lokasi dapat diatur lewat `PUPPETEER_EXECUTABLE_PATH`).
 

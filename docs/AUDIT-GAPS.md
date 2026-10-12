@@ -1,19 +1,25 @@
 # Bundacare: kekurangan dan catatan audit
 
-Catatan ini merangkum kondisi repo dan hal yang belum beres, hasil pemeriksaan lokal pada
-2026-10-11. Bukan janji; ini daftar kerja.
+Catatan ini merangkum kondisi repo dan hal yang belum beres. Diperbarui 2026-10-12
+setelah pemeriksaan lokal menyeluruh.
 
-## Sudah beres
+## Sudah beres (terverifikasi)
 
-- Test suite: 176 tes lulus (`npm test`).
+- Test suite: 176 tes lulus (`npm test`), plus suite UI klik 71/71
+  (`npm run test:ui`) dan uji browser end-to-end (`node tests/registration-browser.test.js`).
+- Uji E2E lokal membuktikan alur penuh: landing → API lintas-origin → kode verifikasi WA →
+  persetujuan admin → user aktif di DB. Bot tidak lagi menyajikan landing page.
 - Panel admin hidup di lokal (`http://127.0.0.1:3030/admin`), landing hidup di lokal
   (`http://127.0.0.1:8787/` lewat `npm run serve:site`).
 - Login panel memakai magic link ke email admin (Gmail SMTP). Token sekali pakai, hash
   SHA-256, batas laju per email dan per IP.
 - Sesi panel disimpan di SQLite (`admin_sessions`), bertahan setelah restart service.
   Default rolling 30 hari, idle 14 hari. Sesi terikat IP + User-Agent.
-- Landing di-host di GitHub Pages: `https://ajra.tech/bundacare/` (custom domain ajra.tech,
-  path `/bundacare`). Workflow `.github/workflows/deploy-site.yml`.
+- Backend sudah ter-deploy ke VPS (`43.157.241.188`, lihat `infra.local.md`, gitignored):
+  `bundacare-bot.service` aktif, Caddy menerbitkan TLS untuk `bundacare.site`,
+  `api.bundacare.site`, dan `bot.bundacare.site`.
+- Landing produksi `https://bundacare.site` menyajikan konten yang identik dengan repo
+  (hash file HTML sama). Salinan cadangan di GitHub Pages `https://ajra.tech/bundacare/`.
 - Fitur HPHT/HPL/persalinan/nifas sudah dihapus dari onboarding WA, formulir, dan panel
   admin. Fokus kini hanya pengingat tablet tambah darah harian.
 - Enam artikel bacaan asli di `site/artikel-*.html`, materinya dari publikasi Kemenkes,
@@ -21,59 +27,47 @@ Catatan ini merangkum kondisi repo dan hal yang belum beres, hasil pemeriksaan l
   sumbernya. Diseragamkan dengan `npm run articles`.
 - Halaman `site/tentang.html` dan kebijakan privasi di `site/privasi.html` yang mengacu
   UU PDP No. 27/2022 dan UU Kesehatan No. 17/2023.
+- Email magic link (Gmail SMTP) dan alarm eksternal (webhook + Telegram) sudah diisi di
+  server; backup offsite sudah diisi.
+- Aksesibilitas: fokus keyboard terlihat di semua kontrol (termasuk input formulir),
+  tanpa overflow horizontal pada lebar 195–1440 px.
 
-## Belum beres
+## Belum beres / perlu tindakan sebelum buka publik
 
-### 1. Backend belum ter-deploy ke VPS
+### 1. WhatsApp belum tertaut di server produksi
 
-- VPS: `43.157.241.188` (lihat `infra.local.md`, gitignored).
-- SSH belum bisa: kunci publik `~/.ssh/bundacare_vps_ed25519.pub` belum ditempel ke server.
-- Setelah akses ada: pasang Node 20+, clone repo, `npm ci`, isi `.env`, pasang service
-  systemd (`deploy/*.service`, `deploy/*.timer`), lalu reverse proxy TLS.
+- Heartbeat VPS menunjukkan `ready: false`; log berulang "client belum siap".
+- Sesi WA ada di `/opt/bundacare/.wwebjs_auth/session-bundacare` tetapi belum
+  terautentikasi. Tautkan lewat QR di panel (`/admin` → "Tautkan WhatsApp") atau
+  `WA_PAIRING_NUMBER`, lalu pastikan `heartbeat.ready: true`.
+- Selama belum tertaut, pengingat tidak terkirim dan registrasi pilot tetap harus tertutup.
 
-### 2. API registrasi belum tersambung ke landing
+### 2. Registrasi publik masih tertutup
 
-- Landing GitHub Pages memanggil API lintas-origin. Backend harus punya TLS dan origin
-  landing harus ada di `REGISTRATION_ALLOWED_ORIGINS`.
-- `site/config.js` masih `BUNDACARE_API_BASE = ""` (belum diarahkan ke backend).
-- Selama backend belum live, formulir menampilkan "Tidak dapat terhubung." (sesuai).
+- `PUBLIC_REGISTRATION_ENABLED=0` di server. Endpoint publik mati; formulir menampilkan
+  "Pendaftaran belum dibuka." (sesuai).
+- Buka hanya setelah WhatsApp tertaut DAN `PUBLIC_WA_NUMBER` diisi (nomor bot).
 
-### 3. Email magic link belum diuji dengan Gmail sungguhan
+### 3. Timer operasional belum diaktifkan
 
-- Kode jalan dengan `SMTP_JSON_TRANSPORT=1` (simulasi). Belum diuji kirim nyata.
-- Perlu App Password Gmail (bukan password akun) di `SMTP_PASS`.
+- `bundacare-watchdog.timer` dan `bundacare-backup.timer` berstatus `disabled`.
+- Aktifkan: `sudo systemctl enable --now bundacare-watchdog.timer bundacare-backup.timer`.
+- `WATCHDOG_RESTART=0`: penjaga hanya memberi alarm, tidak me-restart otomatis. Isi aturan
+  sudoers di `deploy/INSTALL.md` lalu set `1` kalau ingin restart otomatis.
 
 ### 4. Kebijakan privasi perlu tinjauan hukum
 
 - Isi `site/privasi.html` sudah lengkap dan mengacu UU PDP + UU Kesehatan, tetapi sebaiknya
   ditinjau pihak yang paham hukum sebelum pendaftaran dibuka luas.
 - Kontak pengelola masih `halo@bundacare.site`; pastikan surel ini aktif.
-- Registrasi publik tetap tertutup (`PUBLIC_REGISTRATION_ENABLED=0`).
 
-### 5. Aset landing
+### 5. Keamanan yang perlu ditinjau sebelum buka publik
 
-- Hero memakai gambar tangkapan layar aplikasi (`site/images/hero-bundacare.webp`,
-  WebP dari PNG 1254x1254). Ditampilkan sebagai kartu putih bersudut bulat di atas
-  hero merah. Sumber PNG aslinya tidak ikut repo; kalau perlu ubah, konversi ulang
-  ke WebP.
-- Tiga emoji stiker di hero memakai Fluent Emoji (Microsoft, MIT), diekstrak ke
-  `site/images/emoji/` oleh `npm run emoji`. Hanya emoji yang dipakai yang ditulis,
-  bukan seluruh paket (icons.json 99 MB).
-- `site/images/hero.svg` dan `placeholder.svg` sudah tidak dipakai, boleh dihapus.
-
-### 6. Operasional
-
-- Backup offsite belum diisi (`BACKUP_OFFSITE_DIR` / `BACKUP_REMOTE_CMD`).
-- Alarm eksternal (webhook/Telegram) belum diisi; WhatsApp mati saat WhatsApp bermasalah.
-- Belum ada `robots.txt` / meta robots untuk landing.
-- Database pernah dikosongkan dengan `npm run clear-data -- --yes` (menyimpan settings dan
-  sesi admin). Backup sebelum pembersihan ada di `/tmp/bundacare-backup-*.db`.
-
-### 7. Keamanan yang perlu ditinjau sebelum buka publik
-
-- Panel admin menyimpan data kesehatan. Wajib TLS + jangan buka port langsung.
-- Pertimbangkan Cloudflare Access atau daftar IP untuk panel.
+- Panel admin menyimpan data kesehatan. Wajib TLS + jangan buka port langsung (sudah TLS
+  via Caddy). Pertimbangkan Cloudflare Access atau daftar IP untuk panel.
 - Rotasi `SMTP_PASS` dan kunci SSH bila ada indikasi kebocoran.
+- `deploy/.secrets/smtp_app_password` ada di VPS (mode 600). Jangan commit; sudah tertutup
+  `.gitignore`.
 
 ## Cara menjalankan di lokal
 
@@ -86,6 +80,9 @@ npm start                     # http://127.0.0.1:3030/admin
 
 # Panel admin tanpa WA (uji cepat)
 DATA_DIR=/tmp/bundacare-demo ADMIN_WEB_PASSWORD=demo node index.js
+
+# Uji browser end-to-end (butuh Chrome; lokasi lewat PUPPETEER_EXECUTABLE_PATH)
+node tests/registration-browser.test.js
 ```
 
 Set `SMTP_JSON_TRANSPORT=1` untuk menguji magic link tanpa mengirim email nyata.
