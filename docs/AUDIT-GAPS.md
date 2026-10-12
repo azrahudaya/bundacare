@@ -16,10 +16,13 @@ setelah pemeriksaan lokal menyeluruh.
 - Sesi panel disimpan di SQLite (`admin_sessions`), bertahan setelah restart service.
   Default rolling 30 hari, idle 14 hari. Sesi terikat IP + User-Agent.
 - Backend sudah ter-deploy ke VPS (`43.157.241.188`, lihat `infra.local.md`, gitignored):
-  `bundacare-bot.service` aktif, Caddy menerbitkan TLS untuk `bundacare.site`,
-  `api.bundacare.site`, dan `bot.bundacare.site`.
-- Landing produksi `https://bundacare.site` menyajikan konten yang identik dengan repo
-  (hash file HTML sama). Salinan cadangan di GitHub Pages `https://ajra.tech/bundacare/`.
+  `bundacare-bot.service` aktif, Caddy menerbitkan TLS untuk `api.bundacare.site` dan
+  `bot.bundacare.site`.
+- Landing `https://bundacare.site` dihosting di **GitHub Pages** dari folder `site/`
+  (workflow `deploy-site.yml`, `site/CNAME`). VPS tidak lagi menyajikan landing.
+- Animasi landing memakai GSAP + ScrollTrigger self-host (`site/vendor/gsap`), tanpa build
+  step. Hero masuk bertahap, stiker mengapung, parallax, scroll reveal. Kalau GSAP gagal
+  dimuat atau pengguna memilih reduced-motion, semua konten tetap tampil. Uji: `npm run test:anim`.
 - Fitur HPHT/HPL/persalinan/nifas sudah dihapus dari onboarding WA, formulir, dan panel
   admin. Fokus kini hanya pengingat tablet tambah darah harian.
 - Enam artikel bacaan asli di `site/artikel-*.html`, materinya dari publikasi Kemenkes,

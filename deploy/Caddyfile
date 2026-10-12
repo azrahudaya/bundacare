@@ -1,0 +1,15 @@
+# Caddyfile Bundacare — VPS hanya melayani API dan panel admin.
+# Landing statis (bundacare.site) DIHOSTING di GitHub Pages, bukan di sini.
+# Lihat docs/AUDIT-GAPS.md dan deploy/INSTALL.md.
+
+# API registrasi publik (dipanggil lintas-origin oleh landing di GitHub Pages).
+api.bundacare.site {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3030
+}
+
+# Panel admin.
+bot.bundacare.site {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3030
+}
