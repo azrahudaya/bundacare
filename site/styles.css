@@ -244,6 +244,17 @@ h1, h2, h3 {
   .hero-sticker { animation: none; }
 }
 
+/* --- Animasi masuk (GSAP) ---
+   Kelas "js-anim" dipasang oleh skrip inline di <head> SEBELUM cat pertama, jadi
+   elemen ber-data-anim sudah tersembunyi sejak awal (tidak ada kedipan). Kalau
+   GSAP gagal dimuat atau pengguna minta reduced-motion, kelas ini dihapus dan
+   semua konten langsung tampil. */
+.js-anim [data-anim] { opacity: 0; }
+
+/* Saat GSAP mengendalikan stiker, matikan animasi CSS-nya supaya transform tidak
+   berebut (keduanya menulis properti transform yang sama). */
+.js-anim .hero-sticker { animation: none; }
+
 .hero-copy h1 {
   font-size: 3.2rem;
   line-height: 1.1;

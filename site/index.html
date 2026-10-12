@@ -8,8 +8,23 @@
   <link rel="icon" href="data:,">
   <title>Bundacare | Pengingat ibu lewat WhatsApp</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Pasang kelas animasi SEBELUM cat pertama supaya elemen ber-data-anim sudah
+    // tersembunyi sejak awal (tanpa kedipan). Dihapus lagi oleh anim.js kalau GSAP
+    // gagal dimuat atau pengguna memilih reduced-motion.
+    (function () {
+      var ok = false;
+      try {
+        ok = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      } catch (e) { ok = true; }
+      if (ok) document.documentElement.classList.add("js-anim");
+    })();
+  </script>
   <script src="config.js"></script>
+  <script src="vendor/gsap/gsap.min.js" defer></script>
+  <script src="vendor/gsap/ScrollTrigger.min.js" defer></script>
   <script src="site.js" defer></script>
+  <script src="anim.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#isi">Lewati ke isi</a>
@@ -28,12 +43,12 @@
     <section class="hero" aria-labelledby="judul">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <h1 id="judul">Tablet tambah darah tiap hari, diingatkan lewat <span>WhatsApp.</span></h1>
-          <p>Pengingat tablet tambah darah harian lewat WhatsApp, pada jam yang Ibu pilih.</p>
-          <a class="button button-cream" href="#daftar">Ikut pengingat</a>
+          <h1 id="judul" data-anim>Tablet tambah darah tiap hari, diingatkan lewat <span>WhatsApp.</span></h1>
+          <p data-anim>Pengingat tablet tambah darah harian lewat WhatsApp, pada jam yang Ibu pilih.</p>
+          <a class="button button-cream" href="#daftar" data-anim>Ikut pengingat</a>
         </div>
         <div class="hero-visual">
-          <figure class="hero-card">
+          <figure class="hero-card" data-anim>
             <!-- Emoji stiker: Fluent Emoji (github.com/microsoft/fluentui-emoji), MIT.
                  Dekoratif, jadi aria-hidden dan tidak menangkap klik. Ditaruh di dalam
                  kartu supaya posisinya selalu menempel ke tepi kartu. -->
@@ -55,24 +70,24 @@
     <section id="cara-kerja" class="flow-section" aria-labelledby="cara-judul">
       <div class="wrap flow-grid">
         <div class="flow-intro">
-          <h2 id="cara-judul">Dari website ke WhatsApp, tanpa pendataan lewat chat.</h2>
+          <h2 id="cara-judul" data-anim>Dari website ke WhatsApp, tanpa pendataan lewat chat.</h2>
         </div>
         <ol class="flow-list">
-          <li>
+          <li data-anim>
             <span class="flow-num">01</span>
             <div>
               <h3>Isi data</h3>
               <p>Nama, nomor WhatsApp, dan jam pengingat yang Ibu inginkan.</p>
             </div>
           </li>
-          <li>
+          <li data-anim>
             <span class="flow-num">02</span>
             <div>
               <h3>Verifikasi nomor</h3>
               <p>Kirim satu pesan WhatsApp dari nomor yang didaftarkan.</p>
             </div>
           </li>
-          <li>
+          <li data-anim>
             <span class="flow-num">03</span>
             <div>
               <h3>Tunggu persetujuan</h3>
@@ -86,10 +101,10 @@
     <section id="daftar" class="signup-section" aria-labelledby="daftar-judul">
       <div class="wrap signup-grid">
         <div class="signup-intro">
-          <h2 id="daftar-judul" tabindex="-1">Ikut pengingat WhatsApp.</h2>
-          <p>Isi nama, nomor WhatsApp, dan jam pengingat. Pengingat aktif setelah diverifikasi dan disetujui.</p>
+          <h2 id="daftar-judul" tabindex="-1" data-anim>Ikut pengingat WhatsApp.</h2>
+          <p data-anim>Isi nama, nomor WhatsApp, dan jam pengingat. Pengingat aktif setelah diverifikasi dan disetujui.</p>
         </div>
-        <div class="signup-panel">
+        <div class="signup-panel" data-anim>
           <div id="availability" class="availability" role="status" aria-live="polite">Memeriksa ketersediaan…</div>
           <form id="registration-form" novalidate>
             <div class="field">
@@ -139,41 +154,41 @@
     <section id="bacaan" class="articles" aria-labelledby="artikel-judul">
       <div class="wrap">
         <div class="articles-heading">
-          <h2 id="artikel-judul">Baca saat perlu.</h2>
-          <p class="articles-lead">Ringkasan bersumber dari materi Kementerian Kesehatan, ditulis singkat dan apa adanya.</p>
+          <h2 id="artikel-judul" data-anim>Baca saat perlu.</h2>
+          <p class="articles-lead" data-anim>Ringkasan bersumber dari materi Kementerian Kesehatan, ditulis singkat dan apa adanya.</p>
         </div>
         <div class="article-list">
-          <a href="artikel-tablet-tambah-darah.html">
+          <a href="artikel-tablet-tambah-darah.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/tablet-tambah-darah.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Cara minum tablet tambah darah yang benar</strong>
             <p>Dosis dan cara minum agar zat besi terserap optimal.</p>
             <span class="article-open">Baca ↗</span>
           </a>
-          <a href="artikel-anemia-ibu-hamil.html">
+          <a href="artikel-anemia-ibu-hamil.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/anemia-ibu-hamil.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Anemia pada ibu hamil</strong>
             <p>Penyebab, gejala, dan cara mencegah anemia saat hamil.</p>
             <span class="article-open">Baca ↗</span>
           </a>
-          <a href="artikel-gizi-ibu-hamil.html">
+          <a href="artikel-gizi-ibu-hamil.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/gizi-ibu-hamil.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Gizi seimbang ibu hamil</strong>
             <p>Menu seimbang untuk kebutuhan ibu dan janin.</p>
             <span class="article-open">Baca ↗</span>
           </a>
-          <a href="artikel-tanda-persalinan.html">
+          <a href="artikel-tanda-persalinan.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/tanda-persalinan.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Tanda-tanda persalinan</strong>
             <p>Kenali tanda persalinan dan tanda bahaya kehamilan.</p>
             <span class="article-open">Baca ↗</span>
           </a>
-          <a href="artikel-kunjungan-nifas.html">
+          <a href="artikel-kunjungan-nifas.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/kunjungan-nifas.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Kunjungan masa nifas</strong>
             <p>Jadwal empat kali pemeriksaan ibu dan bayi setelah lahir.</p>
             <span class="article-open">Baca ↗</span>
           </a>
-          <a href="artikel-menyusui.html">
+          <a href="artikel-menyusui.html" data-anim>
             <img class="article-thumb" src="images/artikel/thumb/menyusui.jpg" alt="" width="640" height="400" loading="lazy" decoding="async">
             <strong>Menyusui dan ASI eksklusif</strong>
             <p>ASI eksklusif enam bulan dan cara menyusui yang benar.</p>
@@ -194,11 +209,11 @@
         <p class="footer-heading">Bacaan</p>
         <div class="footer-col">
           <a href="artikel-tablet-tambah-darah.html">Tablet tambah darah</a>
-          <a href="artikel-anemia-ibu-hamil.html">Anemia pada ibu hamil</a>
-          <a href="artikel-gizi-ibu-hamil.html">Gizi ibu hamil</a>
-          <a href="artikel-tanda-persalinan.html">Tanda-tanda persalinan</a>
-          <a href="artikel-kunjungan-nifas.html">Kunjungan masa nifas</a>
-          <a href="artikel-menyusui.html">Menyusui</a>
+          <a href="artikel-anemia-ibu-hamil.html" data-anim>Anemia pada ibu hamil</a>
+          <a href="artikel-gizi-ibu-hamil.html" data-anim>Gizi ibu hamil</a>
+          <a href="artikel-tanda-persalinan.html" data-anim>Tanda-tanda persalinan</a>
+          <a href="artikel-kunjungan-nifas.html" data-anim>Kunjungan masa nifas</a>
+          <a href="artikel-menyusui.html" data-anim>Menyusui</a>
         </div>
       </div>
       <div>

@@ -11,6 +11,7 @@
     "watchdog": "node scripts/watchdog.js",
     "test:ui": "bash tests/ui/run.sh",
     "serve:site": "node scripts/serve-site.js",
+    "test:anim": "node tests/anim.test.js",
     "emoji": "node scripts/copy-emoji.js",
     "articles": "node scripts/normalize-articles.js"
   },
