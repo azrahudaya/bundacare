@@ -8037,19 +8037,13 @@ function isWithinSendWindowTime(time) {
   if (!time) {
     return false;
   }
-  const [hour, minute] = String(time).split(":").map(Number);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-    return false;
-  }
-  const minutes = hour * 60 + minute;
-  const { startHour, endHour, endMinute } = getSendWindow();
-  return minutes >= startHour * 60 && minutes <= endHour * 60 + endMinute;
+  // Delegasikan ke send-guard supaya satu sumber kebenaran: ia sudah menangani jendela
+  // yang melewati tengah malam (mis. 22:00-01:55) dan jendela 24 jam.
+  return sendGuard.isTimeWithinSendWindow(time);
 }
 
 function sendWindowLabel() {
-  const { startHour, endHour, endMinute } = getSendWindow();
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${pad(startHour)}:00–${pad(endHour)}:${pad(endMinute)}`;
+  return sendGuard.sendWindowLabel();
 }
 
 // Validasi jam pengingat sekaligus alasannya, supaya pesan ke user bisa tepat:

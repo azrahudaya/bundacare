@@ -77,6 +77,56 @@ async function run() {
     assert.ok(found.detail.includes(jam));
   });
 
+  await test("jendela yang melewati tengah malam didukung (22:00-01:55)", () => {
+    const { createSendGuard } = require("../lib/send-guard.js");
+    const makeGuard = (nowH, nowM) =>
+      createSendGuard({
+        env: {
+          SEND_WINDOW_START_HOUR: "22",
+          SEND_WINDOW_END_HOUR: "1",
+          SEND_WINDOW_END_MINUTE: "55",
+        },
+        logger: { warn() {}, error() {}, log() {} },
+        localNow: () => ({ hour: nowH, minute: nowM }),
+      });
+    // Sebelum ini, end < start membuat syarat tidak pernah benar -> semua kirim mati.
+    assert.strictEqual(makeGuard(21, 59).isWithinSendWindow(), false);
+    assert.strictEqual(makeGuard(22, 0).isWithinSendWindow(), true);
+    assert.strictEqual(makeGuard(23, 30).isWithinSendWindow(), true);
+    assert.strictEqual(makeGuard(0, 30).isWithinSendWindow(), true);
+    assert.strictEqual(makeGuard(1, 55).isWithinSendWindow(), true);
+    assert.strictEqual(makeGuard(1, 56).isWithinSendWindow(), false);
+    assert.strictEqual(makeGuard(12, 0).isWithinSendWindow(), false);
+
+    const g = makeGuard(12, 0);
+    assert.strictEqual(g.isTimeWithinSendWindow("23:30"), true);
+    assert.strictEqual(g.isTimeWithinSendWindow("01:55"), true);
+    assert.strictEqual(g.isTimeWithinSendWindow("01:56"), false);
+    assert.strictEqual(g.isTimeWithinSendWindow("12:00"), false);
+    assert.strictEqual(g.sendWindowLabel(), "22:00\u201301:55");
+  });
+
+  await test("jendela normal dan jendela 24 jam tetap benar", () => {
+    const { createSendGuard } = require("../lib/send-guard.js");
+    const normal = createSendGuard({
+      env: { SEND_WINDOW_START_HOUR: "6", SEND_WINDOW_END_HOUR: "21", SEND_WINDOW_END_MINUTE: "30" },
+      logger: { warn() {}, error() {}, log() {} },
+      localNow: () => ({ hour: 12, minute: 0 }),
+    });
+    assert.strictEqual(normal.isTimeWithinSendWindow("06:00"), true);
+    assert.strictEqual(normal.isTimeWithinSendWindow("21:30"), true);
+    assert.strictEqual(normal.isTimeWithinSendWindow("21:31"), false);
+    assert.strictEqual(normal.isTimeWithinSendWindow("22:10"), false);
+    // start == end berarti jendela penuh 24 jam, bukan kosong.
+    const full = createSendGuard({
+      env: { SEND_WINDOW_START_HOUR: "0", SEND_WINDOW_END_HOUR: "0", SEND_WINDOW_END_MINUTE: "0" },
+      logger: { warn() {}, error() {}, log() {} },
+      localNow: () => ({ hour: 3, minute: 0 }),
+    });
+    assert.strictEqual(full.isWithinSendWindow(), true);
+    assert.strictEqual(full.isTimeWithinSendWindow("15:00"), true);
+  });
+
   console.log("semua uji jendela kirim lulus");
 }
 
