@@ -808,13 +808,27 @@ async function loadAliasCache(db) {
 
 // Ubah alamat pengirim pesan menjadi satu identitas kanonik. Nomor asli dari kontak
 // dipakai lebih dulu karena alamat @lid hanya berlaku untuk sesi perangkat.
+// Nomor palsu hasil bug lama: prefix @lid dipakai apa adanya sebagai nomor @c.us
+// (mis. 204930287689898@lid -> 204930287689898@c.us). Pemetaan seperti ini tidak
+// pernah sah karena digit LID bukan nomor telepon, jadi tidak boleh dipercaya.
+function isLidDerivedFake(canonical, raw) {
+  if (!canonical || !raw) {
+    return false;
+  }
+  if (!String(raw).endsWith("@lid")) {
+    return false;
+  }
+  const prefix = String(raw).split("@")[0];
+  return String(canonical) === `${prefix}@c.us`;
+}
+
 async function resolveSenderIdentity(db, client, msg) {
   const raw = msg && msg.from ? String(msg.from) : "";
   if (!raw) {
     return { raw, waId: raw, aliases: [] };
   }
   const existing = await getCanonicalWaId(db, raw);
-  if (existing !== raw) {
+  if (existing !== raw && !isLidDerivedFake(existing, raw)) {
     return { raw, waId: existing, aliases: [raw] };
   }
   if (!raw.endsWith("@lid")) {
@@ -824,9 +838,22 @@ async function resolveSenderIdentity(db, client, msg) {
   try {
     const contact =
       typeof msg.getContact === "function" ? await msg.getContact() : null;
-    const number = contact && contact.number ? String(contact.number).replace(/\D/g, "") : "";
-    if (number) {
-      numberId = `${number}@c.us`;
+    // whatsapp-web.js mengisi contact.number dari `userid`. Untuk pengirim @lid,
+    // nilainya adalah digit LID (sama dengan prefix alamat @lid), BUKAN nomor HP —
+    // memakainya menghasilkan nomor palsu seperti `204930287689898@c.us` yang lalu
+    // ditolak verifyMessage (regex 62...) sehingga pesan VERIFIKASI diam tanpa balasan.
+    // contact.id sudah dikoreksi ke nomor asli @c.us oleh getContactModel, jadi id itu
+    // diprioritaskan dan digit LID tidak pernah dijadikan nomor.
+    const lidPrefix = String(raw).split("@")[0];
+    const contactId =
+      contact && contact.id ? String(contact.id._serialized || contact.id) : "";
+    if (contactId.endsWith("@c.us")) {
+      numberId = contactId;
+    } else {
+      const number = contact && contact.number ? String(contact.number).replace(/\D/g, "") : "";
+      if (number && number !== lidPrefix) {
+        numberId = `${number}@c.us`;
+      }
     }
   } catch (err) {
     console.warn("Gagal membaca kontak untuk pemetaan identitas:", err.message);

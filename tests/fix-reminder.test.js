@@ -111,6 +111,82 @@ async function run() {
     }
   });
 
+  await test("resolveSenderIdentity mengabaikan contact.number yang berisi digit LID", async () => {
+    const db = memoryDb();
+    try {
+      await mod.ensureAliasTable(db);
+      const client = { pupPage: { evaluate: async () => null } };
+      // Bentuk nyata dari whatsapp-web.js: number = userid = digit LID, sedangkan
+      // contact.id sudah dikoreksi ke nomor asli @c.us oleh getContactModel.
+      const msg = {
+        from: "204930287689898@lid",
+        getContact: async () => ({
+          number: "204930287689898",
+          id: { _serialized: "6282240269818@c.us", user: "6282240269818", server: "c.us" },
+        }),
+      };
+      const identity = await mod.resolveSenderIdentity(db, client, msg);
+      assert.strictEqual(identity.waId, "6282240269818@c.us");
+      assert.ok(/^628\d{8,12}@c\.us$/.test(identity.waId));
+      assert.strictEqual(
+        await mod.getCanonicalWaId(db, "204930287689898@lid"),
+        "6282240269818@c.us",
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  await test("resolveSenderIdentity tidak memakai digit LID saat contact.id juga @lid", async () => {
+    const db = memoryDb();
+    try {
+      await mod.ensureAliasTable(db);
+      const client = { pupPage: { evaluate: async () => null } };
+      const msg = {
+        from: "204930287689898@lid",
+        getContact: async () => ({
+          number: "204930287689898",
+          id: { _serialized: "204930287689898@lid", user: "204930287689898", server: "lid" },
+        }),
+      };
+      const identity = await mod.resolveSenderIdentity(db, client, msg);
+      // Tidak ada nomor asli yang bisa dipetakan: identitas tetap @lid, dan tidak
+      // ada alias palsu 204930287689898@c.us yang tercatat.
+      assert.strictEqual(identity.waId, "204930287689898@lid");
+      assert.strictEqual(
+        await mod.getCanonicalWaId(db, "204930287689898@lid"),
+        "204930287689898@lid",
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  await test("resolveSenderIdentity memulihkan alias palsu hasil bug LID lama", async () => {
+    const db = memoryDb();
+    try {
+      await mod.ensureAliasTable(db);
+      // Baris rusak yang sudah tertulis di produksi: prefix @lid dijadikan nomor @c.us.
+      await mod.recordAlias(db, "204930287689898@lid", "204930287689898@c.us");
+      const client = { pupPage: { evaluate: async () => null } };
+      const msg = {
+        from: "204930287689898@lid",
+        getContact: async () => ({
+          number: "204930287689898",
+          id: { _serialized: "6282240269818@c.us", user: "6282240269818", server: "c.us" },
+        }),
+      };
+      const identity = await mod.resolveSenderIdentity(db, client, msg);
+      assert.strictEqual(identity.waId, "6282240269818@c.us");
+      assert.strictEqual(
+        await mod.getCanonicalWaId(db, "204930287689898@lid"),
+        "6282240269818@c.us",
+      );
+    } finally {
+      db.close();
+    }
+  });
+
   await test("chatIdCandidates menyusun target unik dan memakai alamat ingatan", () => {
     const first = mod.chatIdCandidates("204930287689898@lid", ["6282240269818@c.us", "6282240269818@c.us"]);
     assert.deepStrictEqual(first, ["204930287689898@lid", "6282240269818@c.us"]);
