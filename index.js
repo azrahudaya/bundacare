@@ -4704,6 +4704,16 @@ function buildNeedsAction(users) {
       if (status === "paused" || Number(user.allow_remindcare) === 0) {
         return { code: "paused", text: "Pengingat sedang dijeda", action: "Lanjutkan" };
       }
+      // Jam di luar jendela kirim tidak akan pernah diproses loop pengingat, jadi user
+      // tampak aktif padahal tidak akan pernah menerima pesan. Tandai supaya operator
+      // bisa memperbaikinya, bukan menunggu tanpa tahu ada masalah.
+      if (user.reminder_time && !isWithinSendWindowTime(user.reminder_time)) {
+        return {
+          code: "outside_window",
+          text: `Jam ${user.reminder_time} di luar jam kirim (${sendWindowLabel()} WIB)`,
+          action: "Ubah jam pengingat",
+        };
+      }
       if (status === "onboarding" && Number(user.is_admin) !== 1 && !user.reminder_time && user.created_at) {
         const createdMs = new Date(user.created_at).getTime();
         const nowMs = Date.now();
@@ -6512,16 +6522,30 @@ async function handleOnboardingAnswer(db, client, user, text) {
       return;
     }
   } else if (question.type === "time") {
-    const time = normalizeTimeInput(text);
-    if (!time) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Format jam belum sesuai. Contoh: 17:00.",
-      );
-      return;
+    // Jam pengingat dibatasi jendela kirim; jam melahirkan tidak (itu fakta, bukan jadwal).
+    if (question.field === "reminder_time") {
+      const parsedTime = parseReminderTime(text);
+      if (!parsedTime.ok) {
+        await sendText(
+          client,
+          user.wa_id,
+          reminderTimeErrorText(parsedTime.reason, "17:00"),
+        );
+        return;
+      }
+      updates[question.field] = parsedTime.time;
+    } else {
+      const time = normalizeTimeInput(text);
+      if (!time) {
+        await sendText(
+          client,
+          user.wa_id,
+          "Format jam belum sesuai. Contoh: 17:00.",
+        );
+        return;
+      }
+      updates[question.field] = time;
     }
-    updates[question.field] = time;
   } else if (question.field === "name") {
     const nameValue = text.trim();
     const lower = nameValue.toLowerCase();
@@ -6888,15 +6912,16 @@ async function handleCommand(db, client, user, text) {
   if (/^(ubah|set|ganti)\s+jam\b/.test(normalized) || /^jam\b/.test(normalized)) {
     const match = normalized.match(/(?:ubah|set|ganti)?\s*jam\s*(.*)$/);
     const timeInput = match && match[1] ? match[1] : "";
-    const time = normalizeTimeInput(timeInput);
-    if (!time) {
+    const parsedTime = parseReminderTime(timeInput);
+    if (!parsedTime.ok) {
       await sendText(
         client,
         user.wa_id,
-        "Format jam belum sesuai. Contoh: ubah jam 17:00.",
+        reminderTimeErrorText(parsedTime.reason, "ubah jam 17:00"),
       );
       return true;
     }
+    const time = parsedTime.time;
     await updateUser(db, user.wa_id, {
       reminder_time: time,
       allow_remindcare: 1,
@@ -7841,10 +7866,14 @@ async function startReminderLoop(db, client) {
 // dan hasilnya dikembalikan ke pemanggil supaya bisa ditampilkan ke operator.
 async function applyAdminUserAction(db, user, action, value) {
   if (action === "set_reminder_time") {
-    const normalized = normalizeTimeInput(value);
-    if (!normalized) {
-      return { ok: false, error: "Format jam tidak sah, contoh: 19:30" };
+    const parsedTime = parseReminderTime(value);
+    if (!parsedTime.ok) {
+      return {
+        ok: false,
+        error: reminderTimeErrorText(parsedTime.reason, "19:30"),
+      };
     }
+    const normalized = parsedTime.time;
     await updateUser(db, user.wa_id, {
       reminder_time: normalized,
       allow_remindcare: 1,
@@ -7991,6 +8020,56 @@ function getMaxSendAttempts() {
 
 function getReminderStaleMinutes() {
   return Math.max(0, settingInt("reminder_stale_after_minutes"));
+}
+
+// Jendela kirim efektif (mengikuti setelan runtime, bisa diubah operator dari panel).
+// Dipakai untuk memvalidasi jam pengingat: jam di luar jendela tidak akan pernah
+// diproses loop pengingat, jadi user tidak boleh memilihnya sejak awal.
+function getSendWindow() {
+  return {
+    startHour: settingInt("send_window_start_hour"),
+    endHour: settingInt("send_window_end_hour"),
+    endMinute: settingInt("send_window_end_minute"),
+  };
+}
+
+function isWithinSendWindowTime(time) {
+  if (!time) {
+    return false;
+  }
+  const [hour, minute] = String(time).split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return false;
+  }
+  const minutes = hour * 60 + minute;
+  const { startHour, endHour, endMinute } = getSendWindow();
+  return minutes >= startHour * 60 && minutes <= endHour * 60 + endMinute;
+}
+
+function sendWindowLabel() {
+  const { startHour, endHour, endMinute } = getSendWindow();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(startHour)}:00–${pad(endHour)}:${pad(endMinute)}`;
+}
+
+// Validasi jam pengingat sekaligus alasannya, supaya pesan ke user bisa tepat:
+// "format salah" dan "di luar jam kirim" adalah dua masalah berbeda.
+function parseReminderTime(input) {
+  const time = normalizeTimeInput(input);
+  if (!time) {
+    return { ok: false, reason: "format" };
+  }
+  if (!isWithinSendWindowTime(time)) {
+    return { ok: false, reason: "window", time };
+  }
+  return { ok: true, time };
+}
+
+function reminderTimeErrorText(reason, example = "17:00") {
+  if (reason === "window") {
+    return `bundacare hanya mengirim pengingat antara ${sendWindowLabel()} WIB. Pilih jam di rentang itu ya. ⏰`;
+  }
+  return `Format jam belum sesuai. Contoh: ${example}.`;
 }
 
 // Terapkan pengaturan ke guard pengiriman. Dipanggil saat start dan setiap kali
@@ -8261,7 +8340,13 @@ async function startAdminServer(db) {
     res.redirect("/admin/login");
   };
 
-  registerRoutes(app, db, { requireAdmin, requireCsrf });
+  registerRoutes(app, db, {
+    requireAdmin,
+    requireCsrf,
+    isWithinSendWindow: isWithinSendWindowTime,
+    sendWindowLabel,
+    getSendWindow,
+  });
   // Landing TIDAK disajikan bot. Landing ada di domain sendiri (bundacare.site),
   // sedangkan bot hanya melayani API registrasi dan panel admin. Sebelumnya
   // express.static di sini membuat api.bundacare.site menampilkan landing page.
@@ -9429,6 +9514,13 @@ module.exports = {
   buildWeeklyDigest,
   __handleMessageForTest: handleMessage,
   __processUserReminderTickForTest: processUserReminderTick,
+  // Validasi jam pengingat terhadap jendela kirim (dipakai onboarding WA, perintah
+  // "ubah jam", aksi panel admin, dan API registrasi).
+  getSendWindow,
+  isWithinSendWindowTime,
+  sendWindowLabel,
+  parseReminderTime,
+  reminderTimeErrorText,
   // Jembatan uji untuk pemulihan sesi: memverifikasi backoff dan batas percobaan
   // tanpa benar-benar menjalankan Chromium.
   __scheduleReconnectForTest: scheduleReconnect,

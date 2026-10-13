@@ -21,7 +21,35 @@ const statusDescription = document.querySelector("#status-description");
 const fields = ["name", "phone", "reminderTime", "consent"].map(id => document.getElementById(id));
 let requestId = "";
 let verifying = false;
+// Jendela kirim dari server; dipakai untuk membatasi input jam supaya user tidak
+// memilih jam yang tidak akan pernah diproses pengingat.
+let sendWindow = null;
 const pendingKey = "bundacare-pending";
+
+const minutesOf = t => {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(t || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+
+const withinSendWindow = t => {
+  if (!sendWindow) return true;
+  const v = minutesOf(t);
+  if (v === null) return false;
+  return v >= sendWindow.startHour * 60 && v <= sendWindow.endHour * 60 + sendWindow.endMinute;
+};
+
+const applySendWindow = win => {
+  if (!win) return;
+  sendWindow = win;
+  const input = document.getElementById("reminderTime");
+  const pad = n => String(n).padStart(2, "0");
+  input.min = `${pad(win.startHour)}:00`;
+  input.max = `${pad(win.endHour)}:${pad(win.endMinute)}`;
+  const help = document.getElementById("time-help");
+  if (help && win.label) {
+    help.textContent = `bundacare mengirim pengingat antara ${win.label} WIB.`;
+  }
+};
 
 const setEnabled = enabled => {
   fields.forEach(f => f.disabled = !enabled);
@@ -73,6 +101,7 @@ async function checkAvailability() {
     const res = await fetch(apiUrl("/api/registrations/availability"), { headers: { Accept: "application/json" }, cache: "no-store" });
     const data = await res.json();
     if (res.ok && data.open) {
+      applySendWindow(data.sendWindow);
       availability.textContent = "Pendaftaran pilot tersedia.";
       setEnabled(true);
     } else {
@@ -95,6 +124,9 @@ function validate() {
   if (name.length < 2 || name.length > 100) fail("name", "Nama minimal 2 huruf.");
   if (!/^628\d{8,12}$/.test(phone)) fail("phone", "Nomor tidak valid.");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) fail("reminderTime", "Pilih jam.");
+  else if (!withinSendWindow(reminderTime)) {
+    fail("reminderTime", `Jam harus antara ${sendWindow ? sendWindow.label : "06:00–21:30"} WIB.`);
+  }
   if (!form.consent.checked) fail("consent", "Centang persetujuan.");
 
   return ok ? { name, phone, reminderTime, consent: true } : null;

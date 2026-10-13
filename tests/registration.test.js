@@ -63,11 +63,15 @@ async function run() {
       const landing = await req("GET", "/");
       assert.equal(landing.status, 404, "landing tidak disajikan dari origin API");
       const availability = await req("GET", "/api/registrations/availability");
-      assert.deepEqual(availability.data, { open: true });
+      assert.equal(availability.data.open, true);
+      // Jendela kirim ikut dikirim supaya formulir bisa membatasi pilihan jam.
+      assert.ok(availability.data.sendWindow, "sendWindow harus ada di respons availability");
+      assert.equal(typeof availability.data.sendWindow.startHour, "number");
+      assert.ok(availability.data.sendWindow.label.includes("–"));
     });
     await check("ketersediaan pilot tertutup tidak mengaktifkan formulir", async () => {
       process.env.PUBLIC_REGISTRATION_ENABLED = "0";
-      assert.deepEqual((await req("GET", "/api/registrations/availability")).data, { open: false });
+      assert.equal((await req("GET", "/api/registrations/availability")).data.open, false);
       process.env.PUBLIC_REGISTRATION_ENABLED = "1";
     });
     await check("pendaftaran menolak origin asing dan consent kosong", async () => {
