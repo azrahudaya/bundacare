@@ -1,0 +1,13 @@
+[Unit]
+Description=Backup harian sesi WhatsApp bundacare
+After=bundacare-bot.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/bundacare
+EnvironmentFile=-/opt/bundacare/.env
+ExecStart=/usr/bin/node scripts/backup-session.js
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bundacare-backup-session

@@ -239,6 +239,46 @@ BACKUP_REMOTE_CMD=rclone copy %f remote:bundacare-backups/   # perintah sendiri,
 
 Tanpa keduanya, skrip tetap jalan tetapi mencetak peringatan bahwa salinan luar VPS belum ada.
 
+## Backup sesi WhatsApp (terenkripsi)
+
+`scripts/backup-session.js` mengarsipkan `.wwebjs_auth` tanpa menghentikan bot. Arsip ini
+berisi kredensial tertaut — siapa pun yang memegangnya bisa memakai sesi WhatsApp bot —
+jadi skrip **menolak jalan tanpa enkripsi**:
+
+```bash
+# isi passphrase di .env (JANGAN commit)
+BACKUP_SESSION_PASSPHRASE=passphrase-panjang-acak
+```
+
+Pasang timer (mirip backup database, jalan 04:00):
+
+```bash
+sudo cp deploy/bundacare-backup-session.service deploy/bundacare-backup-session.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now bundacare-backup-session.timer
+sudo systemctl start bundacare-backup-session.service   # uji sekali
+journalctl -u bundacare-backup-session -n 5 --no-pager  # harus "Backup sesi ok"
+```
+
+Cache Chromium (`Cache`, `Code Cache`, `GPUCache`, dll.) dikecualikan supaya arsip turun
+dari ~227 MB menjadi belasan MB. Pemulihan: lihat "Memulihkan sesi WhatsApp" di bawah —
+dekripsi dulu dengan `gpg -d`.
+
+## Pemulihan otomatis sesi WhatsApp
+
+`whatsapp-web.js` menutup browser sendiri saat event `disconnected` (mis. `TIMEOUT`,
+`CONFLICT`), tetapi proses Node tetap hidup. Tanpa penanganan, bot menjadi "mati diam":
+`Restart=always` systemd tidak pernah aktif karena prosesnya tidak keluar. Karena itu bot
+menjadwalkan `initialize()` ulang dengan backoff (`WA_RECONNECT_BASE_DELAY_MS`, default 60
+detik, digandakan sampai `WA_RECONNECT_MAX_DELAY_MS`). Kalau `WA_RECONNECT_MAX_ATTEMPTS`
+(default 8) habis, proses keluar dengan rapi supaya systemd memulai ulang dari nol.
+
+`disconnected` dengan alasan `LOGOUT` tidak disambung ulang otomatis — sesi memang dicabut
+dan butuh penautan manual (QR atau `WA_PAIRING_NUMBER`).
+
+Pastikan `Restart=always` ada di `bundacare-bot.service`; tanpa itu proses yang keluar
+tidak akan dihidupkan kembali.
+
 ## Memulihkan sesi WhatsApp
 
 Sesi ter-logout (biasanya karena WhatsApp Web diperbarui, atau ada dua proses yang
@@ -247,7 +287,10 @@ memakai folder `.wwebjs_auth` yang sama):
 ```bash
 sudo systemctl stop bundacare-bot
 rm -rf .wwebjs_auth
-tar xzf ~/bundacare-session-TANGGAL.tar.gz
+# arsip dari scripts/backup-session.js terenkripsi; dekripsi dulu:
+gpg -d data/backups/bundacare-session-TANGGAL-JAM.tar.gz.gpg > /tmp/session.tar.gz
+tar xzf /tmp/session.tar.gz
+rm -f /tmp/session.tar.gz
 sudo systemctl start bundacare-bot
 ```
 

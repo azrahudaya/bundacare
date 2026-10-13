@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan backup sesi WhatsApp bundacare setiap hari
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

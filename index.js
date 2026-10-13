@@ -548,6 +548,87 @@ function releaseInstanceLock() {
 }
 
 const MAX_INIT_ATTEMPTS = Number(process.env.WA_INIT_MAX_ATTEMPTS || 10);
+// Auto-pemulihan setelah sesi terputus (bukan LOGOUT). Dipisah dari hitungan init awal
+// supaya kegagalan boot tidak mencampur batas percobaan sambung ulang.
+const RECONNECT_MAX_ATTEMPTS = Number(process.env.WA_RECONNECT_MAX_ATTEMPTS || 8);
+const RECONNECT_BASE_DELAY_MS = Number(
+  process.env.WA_RECONNECT_BASE_DELAY_MS || 60 * 1000,
+);
+const RECONNECT_MAX_DELAY_MS = Number(
+  process.env.WA_RECONNECT_MAX_DELAY_MS || 30 * 60 * 1000,
+);
+let reconnectAttempt = 0;
+let reconnectTimer = null;
+// Diisi oleh main() supaya jalur pemulihan bisa meminta penghentian rapi (menutup DB
+// dan melepas lock) alih-alih process.exit yang melewati pembersihan.
+let requestShutdown = null;
+let shuttingDown = false;
+
+// Library menutup browser sendiri saat event `disconnected`, tetapi proses Node tetap
+// hidup: tanpa pemulihan di sini bot jadi "mati diam" dan Restart=always systemd tidak
+// pernah aktif karena prosesnya tidak keluar. Karena itu kita jadwalkan initialize()
+// ulang dengan backoff, dan menyerah dengan keluar proses supaya systemd mengambil alih.
+function scheduleReconnect(client, reason) {
+  if (shuttingDown) {
+    return;
+  }
+  if (reconnectTimer) {
+    console.log("Sambung ulang sudah terjadwal, permintaan ganda diabaikan.");
+    return;
+  }
+  reconnectAttempt += 1;
+  if (reconnectAttempt > RECONNECT_MAX_ATTEMPTS) {
+    console.error(
+      `Gagal menyambung ulang setelah ${RECONNECT_MAX_ATTEMPTS} percobaan. Menghentikan proses supaya systemd memulai ulang dari awal.`,
+    );
+    sendAlert(
+      "reconnect-menyerah",
+      `Sesi WhatsApp tidak pulih setelah ${RECONNECT_MAX_ATTEMPTS} percobaan (${reason}).`,
+    );
+    if (typeof requestShutdown === "function") {
+      requestShutdown("reconnect-menyerah");
+    } else {
+      process.exit(1);
+    }
+    return;
+  }
+  const delayMs = Math.min(
+    RECONNECT_MAX_DELAY_MS,
+    RECONNECT_BASE_DELAY_MS * 2 ** (reconnectAttempt - 1),
+  );
+  console.log(
+    `Menjadwalkan sambung ulang #${reconnectAttempt}/${RECONNECT_MAX_ATTEMPTS} dalam ${Math.round(delayMs / 1000)} detik (${reason}).`,
+  );
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    if (shuttingDown) {
+      return;
+    }
+    try {
+      // Tutup sisa browser sebelum launch ulang supaya userDataDir tidak bentrok
+      // ("browser is already running").
+      await client.destroy();
+    } catch (err) {
+      console.warn(
+        "Gagal menutup browser sebelum sambung ulang:",
+        err && err.message ? err.message : err,
+      );
+    }
+    try {
+      await client.initialize();
+      // Siklus selesai; penghitung direset di handler `ready`.
+    } catch (err) {
+      console.error(
+        "Sambung ulang gagal:",
+        err && err.message ? err.message : err,
+      );
+      scheduleReconnect(client, "percobaan sambung ulang gagal");
+    }
+  }, delayMs);
+  if (typeof reconnectTimer.unref === "function") {
+    reconnectTimer.unref();
+  }
+}
 
 async function initClientWithRetry(client, attempt = 1) {
   try {
@@ -555,7 +636,20 @@ async function initClientWithRetry(client, attempt = 1) {
   } catch (err) {
     console.error(`Gagal menginisialisasi WhatsApp (percobaan ${attempt}):`, err);
     if (attempt >= MAX_INIT_ATTEMPTS) {
-      console.error("Menyerah menginisialisasi WhatsApp. Periksa sesi dan jaringan.");
+      // Menyerah diam-diam membuat proses hidup tanpa bot. Keluar supaya systemd
+      // memulai ulang proses dan pemulihan tidak bergantung pada manusia.
+      console.error(
+        "Menyerah menginisialisasi WhatsApp. Menghentikan proses supaya systemd memulai ulang.",
+      );
+      sendAlert(
+        "init-menyerah",
+        `Gagal menginisialisasi WhatsApp setelah ${MAX_INIT_ATTEMPTS} percobaan.`,
+      );
+      if (typeof requestShutdown === "function") {
+        requestShutdown("init-menyerah");
+      } else {
+        process.exit(1);
+      }
       return;
     }
     // Percobaan gagal bisa meninggalkan browser yang masih memegang userDataDir,
@@ -8912,6 +9006,9 @@ const NUMERIC_ENV_KEYS = [
   "SEND_WARMUP_DAY1_MAX",
   "SEND_WARMUP_DAY8_MAX",
   "WA_INIT_MAX_ATTEMPTS",
+  "WA_RECONNECT_MAX_ATTEMPTS",
+  "WA_RECONNECT_BASE_DELAY_MS",
+  "WA_RECONNECT_MAX_DELAY_MS",
 ];
 
 function validateEnv(env = process.env) {
@@ -9008,6 +9105,14 @@ async function main() {
     : [];
 
   const userAgent = buildUserAgent(executablePath);
+  // Versi WhatsApp Web bisa dipatok lewat WA_WEB_VERSION. Tanpa pin, library memakai
+  // versi bawaannya; kalau versi itu tidak ada di cache, bot selalu mengambil versi
+  // live terbaru — artinya rilis WhatsApp yang merusak library langsung berdampak dan
+  // tidak ada jalan mundur. Cache lokal (non-strict) menyimpan HTML versi yang pernah
+  // berhasil, sehingga operator bisa mematok versi yang sudah terbukti jalan.
+  const pinnedWebVersion = String(process.env.WA_WEB_VERSION || "").trim();
+  const webVersionCachePath =
+    process.env.WA_WEB_VERSION_CACHE_DIR || path.join(__dirname, ".wwebjs_cache");
   const client = new Client({
     authStrategy: new LocalAuth({
       // Client id menentukan nama folder sesi WhatsApp; mengubahnya memaksa taut ulang.
@@ -9015,6 +9120,14 @@ async function main() {
     }),
     deviceName: process.env.WA_DEVICE_NAME || "bundacare",
     browserName: "Chrome",
+    webVersionCache: {
+      type: "local",
+      path: webVersionCachePath,
+      // Non-strict: kalau versi yang dipatok tidak ada di cache, jatuh ke versi live
+      // supaya bot tidak gagal total hanya karena cache kosong.
+      strict: false,
+    },
+    ...(pinnedWebVersion ? { webVersion: pinnedWebVersion } : {}),
     ...pairingOptions(WA_PAIRING_NUMBER),
     ...(userAgent ? { userAgent } : {}),
     puppeteer: {
@@ -9038,6 +9151,15 @@ async function main() {
   // Tanpa penghentian rapi, restart di tengah penulisan SQLite atau saat Chromium
   // memegang profil sesi berisiko merusak DB dan mengunci .wwebjs_auth.
   const shutdown = async (signal) => {
+    // Idempoten: SIGTERM dan permintaan pemulihan bisa datang berdekatan.
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     console.log(`Menerima ${signal}, menghentikan bundacare dengan rapi...`);
     sendGuard.setReady(false);
     if (reminderTimer) {
@@ -9057,6 +9179,9 @@ async function main() {
     releaseInstanceLock();
     process.exit(0);
   };
+  // Jalur pemulihan memakai penghentian rapi ini supaya DB ditutup dan lock dilepas
+  // sebelum proses keluar; systemd lalu memulai ulang proses dari nol.
+  requestShutdown = shutdown;
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 
@@ -9087,6 +9212,13 @@ async function main() {
     clientReady = true;
     lastClientReadyAt = nowWib().toISO();
     sendGuard.setReady(true);
+    // Sesi tersambung lagi: hitungan percobaan sambung ulang direset supaya masalah
+    // di masa depan tetap punya kuota percobaan penuh.
+    reconnectAttempt = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     // Sesi sudah tersambung: QR tidak diperlukan lagi.
     latestQrDataUrl = "";
     latestQrAt = null;
@@ -9124,6 +9256,21 @@ async function main() {
     lastDisconnectReason = String(reason || "tidak diketahui");
     sendGuard.setReady(false);
     console.error("TERPUTUS dari WhatsApp:", reason);
+    // LOGOUT berarti sesi memang dicabut: butuh taut ulang manual (QR/kode), jadi
+    // menyambung ulang otomatis hanya akan berputar tanpa hasil.
+    if (String(reason) === "LOGOUT") {
+      sendGuard.pause(
+        6 * 60 * 60 * 1000,
+        "sesi di-logout, menunggu penautan ulang manual",
+      );
+      console.error(
+        "Sesi di-logout. Tautkan ulang lewat panel admin (QR) atau WA_PAIRING_NUMBER.",
+      );
+      return;
+    }
+    // Selain LOGOUT (mis. TIMEOUT, CONFLICT, NAVIGATION), library sudah menutup browser
+    // sementara proses tetap hidup. Jadwalkan initialize() ulang supaya bot pulih sendiri.
+    scheduleReconnect(client, `disconnected: ${reason}`);
   });
 
   client.on("message", async (msg) => {
@@ -9282,6 +9429,36 @@ module.exports = {
   buildWeeklyDigest,
   __handleMessageForTest: handleMessage,
   __processUserReminderTickForTest: processUserReminderTick,
+  // Jembatan uji untuk pemulihan sesi: memverifikasi backoff dan batas percobaan
+  // tanpa benar-benar menjalankan Chromium.
+  __scheduleReconnectForTest: scheduleReconnect,
+  __reconnectStateForTest: () => ({
+    attempt: reconnectAttempt,
+    hasTimer: Boolean(reconnectTimer),
+    shuttingDown,
+  }),
+  __resetReconnectForTest: () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    reconnectAttempt = 0;
+    shuttingDown = false;
+  },
+  // Membatalkan timer saja tanpa mereset penghitung: dipakai uji untuk memaksa
+  // siklus berikutnya tanpa menunggu backoff asli.
+  __resetReconnectTimerOnlyForTest: () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  },
+  __setRequestShutdownForTest: (fn) => {
+    requestShutdown = fn;
+  },
+  RECONNECT_MAX_ATTEMPTS,
+  RECONNECT_BASE_DELAY_MS,
+  RECONNECT_MAX_DELAY_MS,
   __handleVoteUpdateForTest: handleVoteUpdate,
   __handleAdminCommandForTest: handleAdminCommand,
   normalizeBirthWeightGram,
