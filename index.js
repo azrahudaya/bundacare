@@ -2471,6 +2471,7 @@ function renderAdminLoginPage(message, options = {}) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
     <title>Masuk - bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
       main.login { min-height: 100dvh; display: grid; place-items: center; padding: 20px; }
@@ -2513,6 +2514,7 @@ function renderAdminDashboardPage(options = {}) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
     <meta name="csrf-token" content="${csrf}">
     <title>bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
@@ -3396,6 +3398,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
     <meta name="csrf-token" content="${csrf}">
     <title>Detail user - bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
@@ -5392,6 +5395,15 @@ function shouldSendNow(reminderTime, now) {
   // Tanpa batas ini, satu kali restart mengirim pengingat ke SEMUA user sekaligus.
   const staleLimit = getReminderStaleMinutes();
   return now.diff(scheduled, "minutes").minutes <= staleLimit;
+}
+
+// Pengingat bantu (kunjungan nifas & validasi persalinan) dikirim di jendela pra-pengingat.
+// Kalau jam pengingat tepat di awal jam kerja (mis. 03:00 pada jam kerja 03:00-23:59),
+// jendela pra jatuh di luar jam kerja, jadi pengingat bantu juga dibuka saat pengingat
+// harian sudah jatuh tempo. Keduanya idempoten (takeSendAttempt + penanda sent),
+// sehingga tidak menghasilkan kiriman ganda.
+function isReminderAssistWindow(reminderTime, now) {
+  return shouldSendBeforeReminder(reminderTime, now, 2) || shouldSendNow(reminderTime, now);
 }
 
 function shouldSendBeforeReminder(reminderTime, now, leadHours = 2) {
@@ -7525,12 +7537,13 @@ async function processUserReminderTick(db, client, user, now, today) {
 
   const quotaReached = () => isOverDailyMessageQuota(user, today);
 
-  const inPreReminderWindow = shouldSendBeforeReminder(
-    user.reminder_time,
-    now,
-    2,
-  );
   const canSendMainReminder = shouldSendNow(user.reminder_time, now);
+  // Jendela pra-pengingat (2 jam sebelum jam pengingat) dipakai untuk mengirim pengingat
+  // kunjungan nifas dan validasi persalinan lebih dulu sebelum pengingat harian. Kalau jam
+  // pengingat tepat di awal jam kerja (mis. 03:00 pada jam kerja 03:00-23:59), jendela
+  // pra-nya jatuh di luar jam kerja sehingga pengingat bantu itu tidak pernah terkirim.
+  // Karena itu pengingat bantu juga dibuka begitu pengingat harian sudah jatuh tempo.
+  const inPreReminderWindow = isReminderAssistWindow(user.reminder_time, now);
   const postpartumActive = isPostpartumMonitoringActive(user);
   const deliveryConfirmed = hasConfirmedDelivery(user);
   const collectingDeliveryData =
@@ -9476,6 +9489,7 @@ module.exports = {
   parseHpht,
   shouldSendNow,
   shouldSendBeforeReminder,
+  isReminderAssistWindow,
   shouldSkipToday,
   getHplDate,
   getDeliveryValidationStageDue,

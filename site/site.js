@@ -82,14 +82,32 @@ const setEnabled = enabled => {
   submitButton.disabled = !enabled;
 };
 
+// Galat ditulis dekat bidangnya (span .field-error), bukan hanya lewat balon bawaan
+// browser. DESIGN.md meminta "galat dijelaskan dekat bidangnya": balon bawaan tidak
+// terlihat di beberapa peramban dan hilang begitu fokus berpindah.
+// Peta id input -> id span galat; reminderTime sengaja memakai "time-error" di HTML.
+const ERROR_NOTE_ID = {
+  name: "name-error",
+  phone: "phone-error",
+  reminderTime: "time-error",
+  consent: "consent-error",
+};
+
 const showError = (id, text) => {
   const el = document.getElementById(id);
+  const note = document.getElementById(ERROR_NOTE_ID[id] || `${id}-error`);
   el.setCustomValidity(text);
-  el.reportValidity();
+  el.setAttribute("aria-invalid", "true");
+  if (note) note.textContent = text;
 };
 
 const clearErrors = () => {
-  fields.forEach(f => f.setCustomValidity(""));
+  fields.forEach(f => {
+    f.setCustomValidity("");
+    f.removeAttribute("aria-invalid");
+    const note = document.getElementById(ERROR_NOTE_ID[f.id] || `${f.id}-error`);
+    if (note) note.textContent = "";
+  });
   feedback.hidden = true;
 };
 
@@ -155,7 +173,14 @@ function validate() {
   }
   if (!form.consent.checked) fail("consent", "Centang persetujuan.");
 
-  return ok ? { name, phone, reminderTime, consent: true } : null;
+  if (!ok) {
+    // Pindahkan fokus ke bidang bermasalah pertama supaya pengguna keyboard/pembaca
+    // layar langsung tahu di mana harus memperbaiki.
+    const firstInvalid = fields.find(f => f.getAttribute("aria-invalid") === "true");
+    if (firstInvalid) firstInvalid.focus();
+    return null;
+  }
+  return { name, phone, reminderTime, consent: true };
 }
 
 form.addEventListener("submit", async e => {
@@ -185,7 +210,7 @@ form.addEventListener("submit", async e => {
     feedback.textContent = "Gagal mengirim. Periksa koneksi dan coba lagi.";
     feedback.hidden = false;
   } finally {
-    submitButton.textContent = "Daftar pengingat";
+    submitButton.textContent = "Kirim pendaftaran";
     submitButton.disabled = false;
   }
 });

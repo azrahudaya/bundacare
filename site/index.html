@@ -110,25 +110,25 @@
             <div class="field">
               <label for="name">Nama ibu</label>
               <input id="name" name="name" type="text" autocomplete="name" maxlength="100" required disabled aria-describedby="name-error">
-              <span class="field-error" id="name-error"></span>
+              <span class="field-error" id="name-error" role="alert"></span>
             </div>
             <div class="field">
               <label for="phone">Nomor WhatsApp</label>
               <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="08…" maxlength="20" required disabled aria-describedby="phone-help phone-error">
               <span class="field-help" id="phone-help">Gunakan nomor yang akan dipakai mengirim verifikasi.</span>
-              <span class="field-error" id="phone-error"></span>
+              <span class="field-error" id="phone-error" role="alert"></span>
             </div>
             <div class="field">
               <label for="reminderTime">Jam pengingat</label>
               <input id="reminderTime" name="reminderTime" type="time" required disabled aria-describedby="time-help time-error">
-              <span class="field-help" id="time-help">bundacare bisa mengirim pengingat kapan saja, 24 jam WIB.</span>
-              <span class="field-error" id="time-error"></span>
+              <span class="field-help" id="time-help">Pilih jam pengingat harian antara 03:00 dan 23:59 WIB.</span>
+              <span class="field-error" id="time-error" role="alert"></span>
             </div>
             <div class="consent-row">
               <input id="consent" name="consent" type="checkbox" required disabled aria-describedby="consent-error">
               <label for="consent">Saya setuju data ini dipakai untuk pendaftaran, verifikasi, dan pengingat. Saya sudah membaca <a href="privasi.html" target="_blank">kebijakan privasi</a>.</label>
             </div>
-            <span class="field-error consent-error" id="consent-error"></span>
+            <span class="field-error consent-error" id="consent-error" role="alert"></span>
             <button id="submit-button" class="button button-berry" type="submit" disabled>Kirim pendaftaran</button>
             <p id="form-feedback" class="form-feedback" role="alert" tabindex="-1" hidden></p>
           </form>
