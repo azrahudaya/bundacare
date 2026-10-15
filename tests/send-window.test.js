@@ -134,6 +134,59 @@ async function run() {
     assert.strictEqual(full.isTimeWithinSendWindow("15:00"), true);
   });
 
+  await test("config guard melaporkan jendela (dipakai dashboard admin)", () => {
+    // Bug yang dicegah: panel admin membaca cfg.windowStartHour, tetapi stats().config
+    // tidak pernah mengirim field jendela, sehingga dashboard selalu menampilkan "-".
+    const { createSendGuard } = require("../lib/send-guard.js");
+    const full = createSendGuard({
+      env: { SEND_WINDOW_START_HOUR: "0", SEND_WINDOW_END_HOUR: "0", SEND_WINDOW_END_MINUTE: "0" },
+      logger: { warn() {}, error() {}, log() {} },
+      localNow: () => ({ hour: 2, minute: 0 }),
+    });
+    const cfg = full.stats().config;
+    assert.strictEqual(cfg.windowStartHour, 0);
+    assert.strictEqual(cfg.windowEndHour, 0);
+    assert.strictEqual(cfg.windowEndMinute, 0);
+    assert.strictEqual(cfg.windowLabel, "24 jam");
+    assert.strictEqual(full.stats().withinSendWindow, true);
+
+    const normal = createSendGuard({
+      env: { SEND_WINDOW_START_HOUR: "6", SEND_WINDOW_END_HOUR: "21", SEND_WINDOW_END_MINUTE: "30" },
+      logger: { warn() {}, error() {}, log() {} },
+      localNow: () => ({ hour: 12, minute: 0 }),
+    });
+    assert.strictEqual(normal.stats().config.windowLabel, "06:00\u201321:30");
+  });
+
+  await test("jendela pra-pengingat melewati tengah malam dengan benar", () => {
+    // Bug yang dicegah: pengingat 01:00 punya jendela pra 23:00-01:00. Versi lama
+    // memotongnya jadi 00:00-01:00 karena memakai `now.set({hour})` (selalu hari yang
+    // sama), sehingga pengingat kunjungan nifas/validasi persalinan tidak terkirim
+    // untuk jam pengingat dini hari. Dulu tersembunyi karena 00:00-02:00 belum boleh.
+    const { DateTime } = require("luxon");
+    const at = (h, m) => DateTime.fromISO("2026-10-15T00:00:00", { zone: "Asia/Jakarta" }).set({ hour: h, minute: m });
+    const pre = mod.shouldSendBeforeReminder;
+
+    // Pengingat 01:00 -> pra 23:00-01:00.
+    assert.strictEqual(pre("01:00", at(23, 0), 2), true);
+    assert.strictEqual(pre("01:00", at(23, 59), 2), true);
+    assert.strictEqual(pre("01:00", at(0, 30), 2), true);
+    assert.strictEqual(pre("01:00", at(22, 30), 2), false);
+    assert.strictEqual(pre("01:00", at(1, 0), 2), false, "tepat jam pengingat bukan jendela pra");
+
+    // Pengingat 00:30 -> pra 22:30-00:30.
+    assert.strictEqual(pre("00:30", at(22, 30), 2), true);
+    assert.strictEqual(pre("00:30", at(23, 30), 2), true);
+    assert.strictEqual(pre("00:30", at(0, 29), 2), true);
+    assert.strictEqual(pre("00:30", at(21, 0), 2), false);
+
+    // Pengingat siang tetap benar (tidak melewati tengah malam).
+    assert.strictEqual(pre("17:00", at(15, 0), 2), true);
+    assert.strictEqual(pre("17:00", at(14, 59), 2), false);
+    assert.strictEqual(pre("17:00", at(16, 59), 2), true);
+    assert.strictEqual(pre("17:00", at(17, 0), 2), false);
+  });
+
   console.log("semua uji jendela kirim lulus");
 }
 

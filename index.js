@@ -5402,9 +5402,16 @@ function shouldSendBeforeReminder(reminderTime, now, leadHours = 2) {
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
     return false;
   }
-  const scheduled = now.set({ hour, minute, second: 0, millisecond: 0 });
-  const leadMoment = scheduled.minus({ hours: leadHours });
-  return now >= leadMoment && now < scheduled;
+  // Dihitung dari menit-dalam-hari, bukan now.set(...), supaya jendela pra-pengingat
+  // yang melewati tengah malam ikut benar. Contoh: pengingat 01:00 punya jendela pra
+  // 23:00-01:00; versi lama memotongnya jadi 00:00-01:00 karena `scheduled` selalu
+  // di hari yang sama. Dulu tidak terasa karena jam 00:00-02:00 belum boleh dipilih.
+  const nowMinutes = now.hour * 60 + now.minute;
+  const scheduledMinutes = hour * 60 + minute;
+  const untilReminder = (scheduledMinutes - nowMinutes + 1440) % 1440;
+  // untilReminder === 0 berarti sekarang tepat jam pengingat: itu tugas shouldSendNow,
+  // bukan jendela pra.
+  return untilReminder > 0 && untilReminder <= leadHours * 60;
 }
 
 function isPregnancyActive(user, now) {
@@ -9468,6 +9475,8 @@ module.exports = {
   normalizeTimeInput,
   parseHpht,
   shouldSendNow,
+  shouldSendBeforeReminder,
+  shouldSkipToday,
   getHplDate,
   getDeliveryValidationStageDue,
   buildLaborPhaseMessage,

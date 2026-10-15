@@ -33,12 +33,18 @@ const minutesOf = t => {
 
 const isFullWindow = win => !!win && win.startHour * 60 === win.endHour * 60 + win.endMinute;
 
+// Sama seperti lib/send-guard.js: jendela yang melewati tengah malam (mis. 22:00–01:55)
+// dianggap melingkar, bukan kosong. Tanpa ini formulir menolak jam yang justru diterima
+// server, dan ibu tidak bisa mendaftar sama sekali.
 const withinSendWindow = t => {
   if (!sendWindow) return true;
   const v = minutesOf(t);
   if (v === null) return false;
   if (isFullWindow(sendWindow)) return true;
-  return v >= sendWindow.startHour * 60 && v <= sendWindow.endHour * 60 + sendWindow.endMinute;
+  const start = sendWindow.startHour * 60;
+  const end = sendWindow.endHour * 60 + sendWindow.endMinute;
+  if (start < end) return v >= start && v <= end;
+  return v >= start || v <= end;
 };
 
 const applySendWindow = win => {
@@ -54,9 +60,18 @@ const applySendWindow = win => {
     if (help) help.textContent = "bundacare bisa mengirim pengingat kapan saja, 24 jam WIB.";
     return;
   }
-  const pad = n => String(n).padStart(2, "0");
-  input.min = `${pad(win.startHour)}:00`;
-  input.max = `${pad(win.endHour)}:${pad(win.endMinute)}`;
+  const start = win.startHour * 60;
+  const end = win.endHour * 60 + win.endMinute;
+  if (start > end) {
+    // Jendela melingkar: atribut min/max tidak bisa menyatakan rentang ini, jadi
+    // dibiarkan kosong dan validasi dilakukan lewat withinSendWindow.
+    input.removeAttribute("min");
+    input.removeAttribute("max");
+  } else {
+    const pad = n => String(n).padStart(2, "0");
+    input.min = `${pad(win.startHour)}:00`;
+    input.max = `${pad(win.endHour)}:${pad(win.endMinute)}`;
+  }
   if (help && win.label) {
     help.textContent = `bundacare mengirim pengingat antara ${win.label} WIB.`;
   }
