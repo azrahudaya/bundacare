@@ -221,9 +221,13 @@ function makeClient(sent) {
     );
     const reconClient = {
       ...makeClient([]),
-      getMessageById: async () => ({
-        getPollVotes: async () => [{ voter: RECON_LID, selectedOptionLocalIds: [0] }],
-      }),
+      // Jalur produksi membaca vote langsung lewat pupPage; mock-nya disamakan.
+      pupPage: {
+        evaluate: async (_fn, msgId) => {
+          assert.strictEqual(msgId, `true_${RECON}_poll_recon`);
+          return [{ voter: RECON_LID, selectedOptionLocalIds: [0] }];
+        },
+      },
     };
     const hasil = await mod.__reconcilePollVotesForTest(db, reconClient);
     assert.strictEqual(hasil.recorded, 1, JSON.stringify(hasil));

@@ -7338,13 +7338,60 @@ async function resolveVoterUser(db, client, rawWaId) {
   return user;
 }
 
+// Baca vote tersimpan untuk satu pesan poll, langsung dari WhatsApp Web.
+//
+// Kenapa tidak memakai `message.getPollVotes()` bawaan library: pada whatsapp-web.js
+// 1.34.7 jalur itu error ("Cannot read properties of undefined (reading 'split')")
+// karena mengandalkan `msg.id._serialized` yang tidak selalu ada di model pesan.
+// Jalur di bawah sudah diuji langsung ke sesi produksi dan mengembalikan vote dengan
+// benar. Bentuk hasilnya disamakan dengan PollVote: { voter, selectedOptionLocalIds }.
+async function fetchStoredPollVotes(client, pollMessageId) {
+  if (!client || !pollMessageId) return [];
+  if (client.pupPage && typeof client.pupPage.evaluate === "function") {
+    try {
+      const rows = await client.pupPage.evaluate(async (msgId) => {
+        const MsgKey = window.require("WAWebMsgKey").fromString(msgId);
+        const table = window.require("WAWebPollsVotesSchema").getTable();
+        const items = await table.equals(["parentMsgKey"], MsgKey.toString());
+        return (items || []).map((item) => {
+          let selected = [];
+          try {
+            selected = Array.from(new Uint8Array(item.selectedOptionLocalIds));
+          } catch (_) {
+            selected = [];
+          }
+          return {
+            voter: item.sender ? String(item.sender._serialized || item.sender) : null,
+            selectedOptionLocalIds: selected,
+          };
+        });
+      }, pollMessageId);
+      return Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      console.warn(
+        "Baca vote langsung gagal, coba jalur library:",
+        pollMessageId,
+        (err && err.message) || err,
+      );
+    }
+  }
+  // Cadangan: API resmi library (mungkin rusak, tapi tidak ada ruginya dicoba).
+  try {
+    const message = await client.getMessageById(pollMessageId);
+    if (message && typeof message.getPollVotes === "function") {
+      return await message.getPollVotes();
+    }
+  } catch (_) {}
+  return [];
+}
+
 // Rekonsiliasi vote: baca ulang vote yang tersimpan di WhatsApp untuk pengingat HARI INI
 // dan catat yang belum tercatat. Ini menutup celah yang membuat "vote tidak masuk":
 // jalur event `vote_update` saja tidak cukup karena vote yang tiba saat bot restart (atau
 // saat handler gagal) hilang permanen, padahal datanya masih tersimpan di WhatsApp.
 // Bukti nyata: WhatsApp menyimpan vote, tetapi reminder_logs kosong.
 async function reconcilePollVotes(db, client) {
-  if (!client || typeof client.getMessageById !== "function") {
+  if (!client) {
     return { checked: 0, recorded: 0 };
   }
   const today = toDateKey(nowWib());
@@ -7367,11 +7414,7 @@ async function reconcilePollVotes(db, client) {
   for (const user of rows) {
     checked += 1;
     try {
-      const message = await client.getMessageById(user.last_poll_message_id);
-      if (!message || typeof message.getPollVotes !== "function") {
-        continue;
-      }
-      const votes = await message.getPollVotes();
+      const votes = await fetchStoredPollVotes(client, user.last_poll_message_id);
       for (const vote of votes || []) {
         const response = extractPollResponse(vote);
         if (!response) continue;
