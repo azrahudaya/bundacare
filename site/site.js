@@ -31,10 +31,13 @@ const minutesOf = t => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 
+const isFullWindow = win => !!win && win.startHour * 60 === win.endHour * 60 + win.endMinute;
+
 const withinSendWindow = t => {
   if (!sendWindow) return true;
   const v = minutesOf(t);
   if (v === null) return false;
+  if (isFullWindow(sendWindow)) return true;
   return v >= sendWindow.startHour * 60 && v <= sendWindow.endHour * 60 + sendWindow.endMinute;
 };
 
@@ -42,10 +45,18 @@ const applySendWindow = win => {
   if (!win) return;
   sendWindow = win;
   const input = document.getElementById("reminderTime");
+  const help = document.getElementById("time-help");
+  if (isFullWindow(win)) {
+    // Jendela 24 jam: jangan pasang min/max. Kalau dipasang, min == max dan input
+    // hanya menerima 00:00, jadi ibu tidak bisa memilih jam lain.
+    input.removeAttribute("min");
+    input.removeAttribute("max");
+    if (help) help.textContent = "bundacare bisa mengirim pengingat kapan saja, 24 jam WIB.";
+    return;
+  }
   const pad = n => String(n).padStart(2, "0");
   input.min = `${pad(win.startHour)}:00`;
   input.max = `${pad(win.endHour)}:${pad(win.endMinute)}`;
-  const help = document.getElementById("time-help");
   if (help && win.label) {
     help.textContent = `bundacare mengirim pengingat antara ${win.label} WIB.`;
   }
@@ -125,7 +136,7 @@ function validate() {
   if (!/^628\d{8,12}$/.test(phone)) fail("phone", "Nomor tidak valid.");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) fail("reminderTime", "Pilih jam.");
   else if (!withinSendWindow(reminderTime)) {
-    fail("reminderTime", `Jam harus antara ${sendWindow ? sendWindow.label : "06:00–21:30"} WIB.`);
+    fail("reminderTime", `Jam harus antara ${sendWindow ? sendWindow.label : "jam yang tersedia"} WIB.`);
   }
   if (!form.consent.checked) fail("consent", "Centang persetujuan.");
 

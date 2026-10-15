@@ -67,7 +67,11 @@ async function run() {
       // Jendela kirim ikut dikirim supaya formulir bisa membatasi pilihan jam.
       assert.ok(availability.data.sendWindow, "sendWindow harus ada di respons availability");
       assert.equal(typeof availability.data.sendWindow.startHour, "number");
-      assert.ok(availability.data.sendWindow.label.includes("–"));
+      // Label bisa berupa rentang ("06:00–21:30") atau "24 jam" untuk jendela penuh.
+      assert.ok(
+        availability.data.sendWindow.label.includes("–") || availability.data.sendWindow.label === "24 jam",
+        `label jendela tak terduga: ${availability.data.sendWindow.label}`,
+      );
     });
     await check("ketersediaan pilot tertutup tidak mengaktifkan formulir", async () => {
       process.env.PUBLIC_REGISTRATION_ENABLED = "0";

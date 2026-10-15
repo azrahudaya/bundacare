@@ -134,6 +134,10 @@ const PASSWORD_FILE_MODE = 0o600;
 const REMINDER_STALE_AFTER_MINUTES = Number(
   process.env.REMINDER_STALE_AFTER_MINUTES || 30,
 );
+// Dorongan internal (bukan pengingat yang dijadwalkan ibu) hanya dikirim di jam ini,
+// supaya jendela kirim 24 jam tidak berubah jadi pesan dini hari ke semua user.
+const FOLLOWUP_START_HOUR = 8;
+const FOLLOWUP_END_HOUR = 21;
 // Semua pengiriman keluar lewat guard ini: jeda acak, antrean serial, kuota global,
 // jendela jam kirim, dan circuit breaker. Lihat lib/send-guard.js.
 const sendGuard = createSendGuard({
@@ -2859,7 +2863,11 @@ function renderAdminDashboardPage(options = {}) {
         badgeNode.textContent = text;
         setText('fact-client', ready ? 'Tersambung' : 'Tidak tersambung');
         setText('fact-ready', client.lastReadyAt ? fmtDt(client.lastReadyAt) : 'belum pernah');
-        const win = cfg.windowStartHour === undefined ? '-' : cfg.windowStartHour + ':00 sampai ' + cfg.windowEndHour + ':' + String(cfg.windowEndMinute || 0).padStart(2, '0');
+        const fullWindow = cfg.windowStartHour !== undefined && cfg.windowEndHour !== undefined
+          && cfg.windowStartHour * 60 === cfg.windowEndHour * 60 + Number(cfg.windowEndMinute || 0);
+        const win = cfg.windowStartHour === undefined
+          ? '-'
+          : (fullWindow ? '24 jam' : cfg.windowStartHour + ':00 sampai ' + cfg.windowEndHour + ':' + String(cfg.windowEndMinute || 0).padStart(2, '0'));
         setText('fact-window', guard.withinSendWindow === false ? win + ', di luar jendela' : win);
         setText('fact-quota', (guard.lastDay || 0) + ' / ' + (guard.dailyCap === undefined ? '-' : guard.dailyCap));
         setText('fact-sent', String(guard.sent || 0));
@@ -7819,9 +7827,12 @@ async function startReminderLoop(db, client) {
         lastCleanupDate = today;
       }
 
-      // Dorongan dan alarm hanya keluar di dalam jam kirim supaya tidak ada pesan
-      // tengah malam, dan tanggalnya baru dicatat kalau benar-benar sempat jalan.
-      if (lastFollowUpDate !== today && sendGuard.stats().withinSendWindow) {
+      // Dorongan dan alarm hanya keluar di jam yang wajar. Pengingat yang DIJADWALKAN ibu
+      // boleh jam berapa saja (jendela kirim bisa 24 jam), tetapi dorongan internal ini
+      // tidak diminta ibu, jadi jangan sampai terkirim dini hari.
+      const followUpHour = now.hour;
+      const withinFollowUpHours = followUpHour >= FOLLOWUP_START_HOUR && followUpHour <= FOLLOWUP_END_HOUR;
+      if (lastFollowUpDate !== today && sendGuard.stats().withinSendWindow && withinFollowUpHours) {
         try {
           await runDailyFollowUps(db, client, now, today);
           lastFollowUpDate = today;
@@ -8061,7 +8072,12 @@ function parseReminderTime(input) {
 
 function reminderTimeErrorText(reason, example = "17:00") {
   if (reason === "window") {
-    return `bundacare hanya mengirim pengingat antara ${sendWindowLabel()} WIB. Pilih jam di rentang itu ya. ⏰`;
+    const label = sendWindowLabel();
+    if (label === "24 jam") {
+      // Jendela penuh: seharusnya tidak ada jam yang ditolak karena jendela.
+      return `Format jam belum sesuai. Contoh: ${example}.`;
+    }
+    return `bundacare hanya mengirim pengingat antara ${label} WIB. Pilih jam di rentang itu ya. ⏰`;
   }
   return `Format jam belum sesuai. Contoh: ${example}.`;
 }

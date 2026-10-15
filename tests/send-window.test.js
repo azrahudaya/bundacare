@@ -9,6 +9,13 @@
 
 const assert = require("assert");
 
+// Jendela kirim eksplisit supaya uji ini menguji PERILAKU jendela, bukan nilai
+// deploy saat ini. Tanpa ini, mengubah jendela deploy (mis. jadi 24 jam) akan
+// membuat uji "jam di luar jendela ditolak" gagal padahal kodenya benar.
+process.env.SEND_WINDOW_START_HOUR = "6";
+process.env.SEND_WINDOW_END_HOUR = "21";
+process.env.SEND_WINDOW_END_MINUTE = "30";
+
 const mod = require("../index.js");
 
 async function test(name, fn) {
