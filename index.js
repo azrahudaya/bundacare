@@ -161,6 +161,9 @@ const adminLoginAttempts = new Map();
 let reminderLoopRunning = false;
 let lastCleanupDate = null;
 let lastFollowUpDate = null;
+// Kapan terakhir vote direkonsiliasi (ms). Dijaga di memori: cukup untuk membatasi
+// pembacaan WhatsApp ke sekali per beberapa menit.
+let lastVoteReconcileAt = 0;
 const rateLimitState = new Map();
 const adminSessions = new Map();
 const deleteConfirmState = new Map();
@@ -2298,11 +2301,23 @@ function sessionTtlMs() {
     : 30 * 24 * 60 * 60 * 1000;
 }
 
-// Cookie yang dicuri tidak berguna dari mesin lain: sesi terikat ke alamat dan
-// User-Agent saat login, dan mati kalau hash password berubah.
+// Sesi terikat ke perangkat lewat User-Agent saja, dan mati kalau hash password berubah.
+// Alamat IP SENGAJA tidak dipakai: IP ponsel/ISP berubah-ubah, dan kalau IP dijadikan
+// syarat, operator terlempar ke halaman masuk berkali-kali dalam masa sesi 30 hari.
+// Proteksi tetap ada: cookie HttpOnly + SameSite=Strict + token acak 24 byte.
 function sessionFingerprint(req) {
-  const agent = String((req && req.headers && req.headers["user-agent"]) || "").slice(0, 200);
-  return `${clientIp(req)}|${agent}`;
+  return String((req && req.headers && req.headers["user-agent"]) || "").slice(0, 200);
+}
+
+// Cocokkan sidik jari sesi. Menerima dua bentuk:
+// - bentuk baru: hanya User-Agent.
+// - bentuk lama (sebelum perbaikan): "<ip>|<user-agent>". Sesi lama tetap sah selama
+//   User-Agent-nya sama, jadi operator tidak dipaksa masuk ulang sekali setelah deploy.
+function sessionFingerprintMatches(saved, req) {
+  const current = sessionFingerprint(req);
+  const stored = String(saved || "");
+  if (stored === current) return true;
+  return stored.endsWith(`|${current}`);
 }
 
 // Referensi basis data untuk menyimpan dan mencabut sesi. Diisi saat server admin mulai.
@@ -2334,7 +2349,10 @@ function createAdminSession(req, email) {
     email: email || "",
     fingerprint: sessionFingerprint(req),
     lastSeen: now,
+    lastPersisted: now,
     epoch: passwordEpoch,
+    // Disimpan supaya perpanjangan sesi (rolling) bisa ditulis ke basis data.
+    tokenHash: magicAuth.sha256(token),
   };
   adminSessions.set(token, session);
   persistAdminSession(token, session, email);
@@ -2395,7 +2413,7 @@ function getAdminSession(req) {
     (session.expiresAt && now > session.expiresAt) ||
     idle ||
     session.epoch !== passwordEpoch ||
-    session.fingerprint !== sessionFingerprint(req)
+    !sessionFingerprintMatches(session.fingerprint, req)
   ) {
     adminSessions.delete(token);
     adminSessions.delete(`hash:${magicAuth.sha256(token)}`);
@@ -2408,6 +2426,15 @@ function getAdminSession(req) {
   // Perpanjang masa berlaku selama dipakai: sesi "rolling" agar operator tidak
   // terlempar hanya karena sedang tidak membuka panel beberapa hari.
   session.expiresAt = now + sessionTtlMs();
+  // Simpan perpanjangan ke basis data. Tanpa ini, sesi di DB tetap memakai waktu login
+  // lama, sehingga setelah restart service sesi yang sudah diperpanjang kembali basi.
+  // Ditulis paling banyak sekali per menit supaya tidak menghajar SQLite tiap permintaan.
+  if (adminDb && session.tokenHash && now - (session.lastPersisted || 0) > 60 * 1000) {
+    session.lastPersisted = now;
+    magicAuth
+      .touchSession(adminDb, session.tokenHash, session.expiresAt)
+      .catch(() => {});
+  }
   return session;
 }
 
@@ -7267,16 +7294,31 @@ async function handleMessage(db, client, msg) {
   await sendText(client, waId, fallbackText);
 }
 
-async function handleVoteUpdate(db, client, vote) {
-  if (!vote) {
-    return;
+// Ambil jawaban ("Sudah"/"Belum") dari sebuah objek vote, dari bentuk apa pun yang
+// diberikan library: selectedOptions[].name, selectedOptions[].localId, atau
+// selectedOptionLocalIds. Dipakai jalur event maupun rekonsiliasi.
+function extractPollResponse(vote) {
+  if (!vote) return null;
+  if (Array.isArray(vote.selectedOptions) && vote.selectedOptions.length > 0) {
+    const opt = vote.selectedOptions[0];
+    if (opt && opt.name) {
+      const parsed = parsePollAnswer(opt.name);
+      if (parsed) return parsed;
+    }
+    if (opt && typeof opt.localId === "number") {
+      return opt.localId === 0 ? "Sudah" : opt.localId === 1 ? "Belum" : null;
+    }
   }
-  const rawWaId = vote.voter ? String(vote.voter).trim() : "";
-  if (!rawWaId || isUnsupportedDirectTarget(rawWaId)) {
-    return;
+  if (Array.isArray(vote.selectedOptionLocalIds) && vote.selectedOptionLocalIds.length > 0) {
+    const id = vote.selectedOptionLocalIds[0];
+    return id === 0 ? "Sudah" : id === 1 ? "Belum" : null;
   }
+  return null;
+}
 
-  // Voter bisa berupa identitas perangkat (@lid). Cari user asli lewat tabel alias.
+// Cari user dari identitas voter, termasuk yang datang sebagai alamat perangkat (@lid).
+// Dipakai jalur event dan rekonsiliasi supaya aturan identitasnya satu tempat saja.
+async function resolveVoterUser(db, client, rawWaId) {
   const canonicalWaId = await getCanonicalWaId(db, rawWaId);
   let user = await getUser(db, canonicalWaId);
   if (!user && rawWaId !== canonicalWaId) {
@@ -7293,6 +7335,85 @@ async function handleVoteUpdate(db, client, vote) {
       }
     } catch (_) {}
   }
+  return user;
+}
+
+// Rekonsiliasi vote: baca ulang vote yang tersimpan di WhatsApp untuk pengingat HARI INI
+// dan catat yang belum tercatat. Ini menutup celah yang membuat "vote tidak masuk":
+// jalur event `vote_update` saja tidak cukup karena vote yang tiba saat bot restart (atau
+// saat handler gagal) hilang permanen, padahal datanya masih tersimpan di WhatsApp.
+// Bukti nyata: WhatsApp menyimpan vote, tetapi reminder_logs kosong.
+async function reconcilePollVotes(db, client) {
+  if (!client || typeof client.getMessageById !== "function") {
+    return { checked: 0, recorded: 0 };
+  }
+  const today = toDateKey(nowWib());
+  // Hanya user yang pengingatnya sudah keluar hari ini dan belum punya jawaban tercatat.
+  const rows = await dbAll(
+    db,
+    `SELECT u.* FROM users u
+     LEFT JOIN reminder_logs r
+       ON r.wa_id = u.wa_id AND r.reminder_date = ?
+     WHERE u.status = 'active'
+       AND u.allow_remindcare = 1
+       AND u.is_blocked = 0
+       AND u.last_reminder_date = ?
+       AND u.last_poll_message_id IS NOT NULL
+       AND (r.response IS NULL OR r.response = '')`,
+    [today, today],
+  );
+  let checked = 0;
+  let recorded = 0;
+  for (const user of rows) {
+    checked += 1;
+    try {
+      const message = await client.getMessageById(user.last_poll_message_id);
+      if (!message || typeof message.getPollVotes !== "function") {
+        continue;
+      }
+      const votes = await message.getPollVotes();
+      for (const vote of votes || []) {
+        const response = extractPollResponse(vote);
+        if (!response) continue;
+        // Cocokkan voter ke user ini (vote bisa datang sebagai alamat @lid).
+        const rawVoter = vote && vote.voter ? String(vote.voter) : "";
+        if (rawVoter) {
+          const canonical = await getCanonicalWaId(db, rawVoter);
+          const matches =
+            canonical === user.wa_id ||
+            rawVoter === user.wa_id ||
+            rawVoter.split("@")[0] === String(user.wa_id).split("@")[0];
+          if (!matches) continue;
+        }
+        // Catat tanpa membalas: vote ini sudah lewat, balasan "terima kasih" akan terasa
+        // aneh kalau dikirim terlambat. Tujuannya supaya data masuk ke panel admin.
+        const result = await recordDailyResponse(db, user.wa_id, today, response);
+        if (result.allowed) {
+          recorded += 1;
+          console.log(
+            `Rekonsiliasi vote: ${user.wa_id} -> ${response} (${today})`,
+          );
+        }
+        break;
+      }
+    } catch (err) {
+      console.warn("Rekonsiliasi vote gagal untuk", user.wa_id, ":", err.message);
+    }
+  }
+  return { checked, recorded };
+}
+
+async function handleVoteUpdate(db, client, vote) {
+  if (!vote) {
+    return;
+  }
+  const rawWaId = vote.voter ? String(vote.voter).trim() : "";
+  if (!rawWaId || isUnsupportedDirectTarget(rawWaId)) {
+    return;
+  }
+
+  // Voter bisa berupa identitas perangkat (@lid). Cari user asli lewat tabel alias.
+  const user = await resolveVoterUser(db, client, rawWaId);
   if (!user || user.status !== "active") {
     return;
   }
@@ -7337,19 +7458,7 @@ async function handleVoteUpdate(db, client, vote) {
   // Ekstraksi teks jawaban
   // Jika parentMessage belum tercache di memori, opt.name bisa undefined.
   // Dalam kondisi itu pakai localId (0 = opsi pertama "Sudah", 1 = opsi kedua "Belum").
-  let response = null;
-  if (Array.isArray(vote.selectedOptions) && vote.selectedOptions.length > 0) {
-    const opt = vote.selectedOptions[0];
-    if (opt && opt.name) {
-      response = parsePollAnswer(opt.name);
-    }
-    if (!response && opt && typeof opt.localId === "number") {
-      response = opt.localId === 0 ? "Sudah" : opt.localId === 1 ? "Belum" : null;
-    }
-  } else if (Array.isArray(vote.selectedOptionLocalIds) && vote.selectedOptionLocalIds.length > 0) {
-    const id = vote.selectedOptionLocalIds[0];
-    response = id === 0 ? "Sudah" : id === 1 ? "Belum" : null;
-  }
+  const response = extractPollResponse(vote);
 
   if (!response) {
     return;
@@ -7845,6 +7954,23 @@ async function startReminderLoop(db, client) {
           console.error("Gagal membersihkan log lama:", err);
         }
         lastCleanupDate = today;
+      }
+
+      // Rekonsiliasi vote: jalur event `vote_update` bisa terlewat (mis. vote masuk saat
+      // bot restart), jadi vote yang tersimpan di WhatsApp dibaca ulang tiap 5 menit dan
+      // dicatat yang belum masuk. Tanpa ini, jawaban ibu hilang dari panel admin.
+      if (now.toMillis() - lastVoteReconcileAt > 5 * 60 * 1000) {
+        lastVoteReconcileAt = now.toMillis();
+        try {
+          const hasil = await reconcilePollVotes(db, client);
+          if (hasil.recorded > 0) {
+            console.log(
+              `Rekonsiliasi vote: ${hasil.recorded} jawaban dipulihkan dari ${hasil.checked} user.`,
+            );
+          }
+        } catch (err) {
+          console.error("Gagal merekonsiliasi vote:", err);
+        }
       }
 
       // Dorongan dan alarm hanya keluar di jam yang wajar. Pengingat yang DIJADWALKAN ibu
@@ -9585,6 +9711,8 @@ module.exports = {
   RECONNECT_BASE_DELAY_MS,
   RECONNECT_MAX_DELAY_MS,
   __handleVoteUpdateForTest: handleVoteUpdate,
+  __reconcilePollVotesForTest: reconcilePollVotes,
+  extractPollResponse,
   __handleAdminCommandForTest: handleAdminCommand,
   normalizeBirthWeightGram,
   __setSendReadyForTest: (value) => {

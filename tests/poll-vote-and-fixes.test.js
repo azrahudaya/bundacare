@@ -204,6 +204,51 @@ function makeClient(sent) {
     assert.ok(sent.some((m) => /Halo, Siti/.test(m.body)));
   });
 
+  await test("reconcilePollVotes memulihkan vote yang terlewat lewat event", async () => {
+    // Bug nyata di produksi: WhatsApp menyimpan 14 vote, tetapi reminder_logs kosong.
+    // Jalur event `vote_update` saja tidak cukup karena vote yang tiba saat bot restart
+    // hilang permanen. Rekonsiliasi membaca ulang vote dari WhatsApp.
+    const RECON = "62822223333@c.us";
+    const RECON_LID = "111222333444@lid";
+    await db.run(
+      `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, is_blocked, created_at, updated_at)
+       VALUES (?, 'Ibu Rekon', 'active', 1, '10:00', ?, ?, 1, 0, 0, datetime('now'), datetime('now'))`,
+      [RECON, today, `true_${RECON}_poll_recon`],
+    );
+    await db.run(
+      "INSERT OR REPLACE INTO user_aliases (alias, canonical, first_seen, last_seen) VALUES (?,?,?,?)",
+      [RECON_LID, RECON, new Date().toISOString(), new Date().toISOString()],
+    );
+    const reconClient = {
+      ...makeClient([]),
+      getMessageById: async () => ({
+        getPollVotes: async () => [{ voter: RECON_LID, selectedOptionLocalIds: [0] }],
+      }),
+    };
+    const hasil = await mod.__reconcilePollVotesForTest(db, reconClient);
+    assert.strictEqual(hasil.recorded, 1, JSON.stringify(hasil));
+    const row = await new Promise((resolve, reject) =>
+      db.get(
+        "SELECT response FROM reminder_logs WHERE wa_id = ? AND reminder_date = ?",
+        [RECON, today],
+        (err, r) => (err ? reject(err) : resolve(r)),
+      ),
+    );
+    assert.strictEqual(row.response, "Sudah");
+
+    // Kedua kali: user yang sudah dijawab tidak diproses lagi (tidak dobel).
+    const kedua = await mod.__reconcilePollVotesForTest(db, reconClient);
+    assert.strictEqual(kedua.checked, 0, JSON.stringify(kedua));
+  });
+
+  await test("extractPollResponse membaca semua bentuk vote", () => {
+    assert.strictEqual(mod.extractPollResponse({ selectedOptions: [{ name: "Sudah", localId: 0 }] }), "Sudah");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptions: [{ localId: 1 }] }), "Belum");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: [0] }), "Sudah");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: [] }), null);
+    assert.strictEqual(mod.extractPollResponse(null), null);
+  });
+
   db.close();
   console.log("semua uji perbaikan poll vote dan validasi lulus");
 })();
