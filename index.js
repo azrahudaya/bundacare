@@ -7105,8 +7105,15 @@ async function handleMessage(db, client, msg) {
   };
   const existingUser = await getUser(db, waId);
   if ((!existingUser || (existingUser.status === "onboarding" && !existingUser.is_blocked)) && /^VERIFIKASI\s+/i.test(text)) {
-    if (await verifyMessage(db, waId, text)) {
-      await sendText(client, waId, "Nomor terverifikasi. Pendaftaran menunggu persetujuan pengelola.");
+    const verified = await verifyMessage(db, waId, text);
+    if (verified) {
+      const reg = typeof verified === "object" ? verified : null;
+      const timeStr = reg && reg.reminderTime ? ` setiap hari pukul ${reg.reminderTime} WIB` : "";
+      await sendText(
+        client,
+        waId,
+        `Nomor terverifikasi dan pendaftaran aktif! Pengingat tablet FE akan dikirim${timeStr}. 💊\n\nKetik *menu* atau *info* untuk melihat jadwal atau bantuan.`,
+      );
     }
     return;
   }

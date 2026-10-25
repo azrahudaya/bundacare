@@ -128,13 +128,22 @@ async function run() {
     });
     await check("@lid terpetakan ke nomor yang sama, kode dikonsumsi sekali", async () => {
       await inbound(`VERIFIKASI ${token}`, "123456@lid", phone);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${requestId}`)).data.status, "active");
       await inbound(`VERIFIKASI ${token}`);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${requestId}`)).data.status, "pending_approval");
-      assert.equal(await get("SELECT * FROM users WHERE wa_id = ?", [`${phone}@c.us`]), undefined);
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${requestId}`)).data.status, "active");
+      const user = await get("SELECT * FROM users WHERE wa_id = ?", [`${phone}@c.us`]);
+      assert.equal(user.status, "active");
+      assert.equal(user.reminder_time, "08:30");
     });
     await check("admin login dan persetujuan wajib sesi serta CSRF", async () => {
-      assert.equal((await req("POST", `/admin/api/registrations/${requestId}/approve`, {})).status, 401);
+      const manualReqId = "f".repeat(48);
+      const manualPhone = "6285700000088";
+      await exec(
+        `INSERT INTO registrations (request_id, phone, name, reminder_time, consent, consent_at, token_hash, expires_at, status, verified_at)
+         VALUES (?, ?, 'Manual User', '09:00', 1, datetime('now'), '', datetime('now', '+15 minutes'), 'pending_approval', datetime('now'))`,
+        [manualReqId, manualPhone],
+      );
+      assert.equal((await req("POST", `/admin/api/registrations/${manualReqId}/approve`, {})).status, 401);
       const login = await fetch(`http://127.0.0.1:${process.env.ADMIN_WEB_PORT}/admin/login`, {
         method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "username=admin&password=test-password-only",
       });
@@ -142,25 +151,29 @@ async function run() {
       cookie = login.headers.get("set-cookie").split(";")[0];
       const dashboard = await req("GET", "/admin", null, { Cookie: cookie });
       csrf = dashboard.data.match(/name="csrf-token" content="([^"]+)"/)[1];
-      assert.equal((await req("POST", `/admin/api/registrations/${requestId}/approve`, {}, { Cookie: cookie })).status, 403);
+      assert.equal((await req("POST", `/admin/api/registrations/${manualReqId}/approve`, {}, { Cookie: cookie })).status, 403);
       const list = await req("GET", "/admin/api/registrations", null, { Cookie: cookie });
       assert.equal(list.status, 200);
-      assert.ok(list.data.registrations.some((entry) => entry.requestId === requestId));
-      assert.equal((await req("POST", `/admin/api/registrations/${requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf })).status, 200);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${requestId}`)).data.status, "active");
-      const user = await get("SELECT * FROM users WHERE wa_id = ?", [`${phone}@c.us`]);
+      assert.ok(list.data.registrations.some((entry) => entry.requestId === manualReqId));
+      assert.equal((await req("POST", `/admin/api/registrations/${manualReqId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf })).status, 200);
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${manualReqId}`)).data.status, "active");
+      const user = await get("SELECT * FROM users WHERE wa_id = ?", [`${manualPhone}@c.us`]);
       assert.equal(user.status, "active");
-      assert.equal(user.reminder_time, "08:30");
-      assert.equal((await req("POST", `/admin/api/registrations/${requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf })).status, 409);
+      assert.equal(user.reminder_time, "09:00");
+      assert.equal((await req("POST", `/admin/api/registrations/${manualReqId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf })).status, 409);
     });
     await check("persetujuan menghormati batas user baru harian", async () => {
-      const a = await req("POST", "/api/registrations", { ...form, phone: "085700000011" });
-      assert.equal(a.status, 201);
-      await inbound(new URL(a.data.verificationUrl).searchParams.get("text"), "6285700000011@c.us");
+      const limitReqId = "e".repeat(48);
+      const limitPhone = "6285700000011";
+      await exec(
+        `INSERT INTO registrations (request_id, phone, name, reminder_time, consent, consent_at, token_hash, expires_at, status, verified_at)
+         VALUES (?, ?, 'Limit User', '09:00', 1, datetime('now'), '', datetime('now', '+15 minutes'), 'pending_approval', datetime('now'))`,
+        [limitReqId, limitPhone],
+      );
       await bot.setSetting(db, "onboarding_daily_limit", 1);
-      const blocked = await req("POST", `/admin/api/registrations/${a.data.requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
+      const blocked = await req("POST", `/admin/api/registrations/${limitReqId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
       assert.equal(blocked.status, 429);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${a.data.requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${limitReqId}`)).data.status, "pending_approval");
       await bot.setSetting(db, "onboarding_daily_limit", 20);
     });
     await check("admin allow sebelum formulir tidak mengunci pendaftaran", async () => {
@@ -170,9 +183,7 @@ async function run() {
       const candidate = await req("POST", "/api/registrations", { ...form, phone: candidatePhone });
       assert.equal(candidate.status, 201);
       await inbound(new URL(candidate.data.verificationUrl).searchParams.get("text"), `${candidatePhone}@c.us`);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${candidate.data.requestId}`)).data.status, "pending_approval");
-      const approved = await req("POST", `/admin/api/registrations/${candidate.data.requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
-      assert.equal(approved.status, 200);
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${candidate.data.requestId}`)).data.status, "active");
       assert.equal((await get("SELECT status FROM users WHERE wa_id = ?", [`${candidatePhone}@c.us`])).status, "active");
     });
     await check("admin allow sebelum verifikasi tidak mengunci pendaftaran", async () => {
@@ -180,9 +191,7 @@ async function run() {
       assert.equal(candidate.status, 201);
       await bot.__handleAdminCommandForTest(db, client, await get("SELECT * FROM users WHERE wa_id = ?", ["628111222333@c.us"]) || { wa_id: "628111222333@c.us", is_admin: 1 }, "admin allow 6285700000021");
       await inbound(new URL(candidate.data.verificationUrl).searchParams.get("text"), "6285700000021@c.us");
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${candidate.data.requestId}`)).data.status, "pending_approval");
-      const approved = await req("POST", `/admin/api/registrations/${candidate.data.requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
-      assert.equal(approved.status, 200);
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${candidate.data.requestId}`)).data.status, "active");
       assert.equal((await get("SELECT status FROM users WHERE wa_id = ?", ["6285700000021@c.us"])).status, "active");
     });
     await check("duplikat tidak mengganggu user aktif", async () => {
@@ -213,7 +222,7 @@ async function run() {
       assert.notEqual(retry.data.requestId, response.data.requestId);
       const freshToken = new URL(retry.data.verificationUrl).searchParams.get("text").split(" ")[1];
       await inbound(`VERIFIKASI ${freshToken}`, "6285700000004@c.us");
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "active");
     });
     await check("start nomor asing selalu diarahkan ke website meski formulir pilot tutup", async () => {
       process.env.PUBLIC_REGISTRATION_ENABLED = "0";
@@ -245,7 +254,7 @@ async function run() {
       assert.equal(retry.status, 201);
       const freshToken = new URL(retry.data.verificationUrl).searchParams.get("text").split(" ")[1];
       await inbound(`VERIFIKASI ${freshToken}`, "6285700000006@c.us");
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "active");
     });
     await check("nomor pending tidak dapat membatalkan atau memproses onboarding WA", async () => {
       const pending = await req("POST", "/api/registrations", { ...form, phone: "085700000007" });
@@ -257,12 +266,11 @@ async function run() {
       assert.equal(retry.status, 201);
       const retryToken = new URL(retry.data.verificationUrl).searchParams.get("text");
       await inbound(retryToken, "6285700000007@c.us");
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${retry.data.requestId}`)).data.status, "active");
     });
     await check("pendaftar belum aktif dapat meminta hapus data dari WA", async () => {
       const pending = await req("POST", "/api/registrations", { ...form, phone: "085700000014" });
       assert.equal(pending.status, 201);
-      await inbound(new URL(pending.data.verificationUrl).searchParams.get("text"), "6285700000014@c.us");
       await inbound("delete", "6285700000014@c.us");
       assert.equal(await get("SELECT * FROM registrations WHERE phone = ?", ["6285700000014"]), undefined);
     });
@@ -271,21 +279,16 @@ async function run() {
       const adminDelete = await req("POST", `/admin/api/users/${encodeURIComponent(`${targetPhone}@c.us`)}/actions`, { action: "delete_data", value: "HAPUS" }, { Cookie: cookie, "x-csrf-token": csrf });
       assert.equal(adminDelete.status, 200);
       assert.equal(await get("SELECT * FROM registrations WHERE phone = ?", [targetPhone]), undefined);
-      await bot.setSetting(db, "onboarding_daily_limit", 2);
-      const throttled = await req("POST", `/admin/api/registrations/${(await get("SELECT request_id FROM registrations WHERE phone = ?", ["6285700000011"])).request_id}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
-      assert.equal(throttled.status, 429);
-      await bot.setSetting(db, "onboarding_daily_limit", 20);
       const next = await req("POST", "/api/registrations", { ...form, phone: targetPhone });
       assert.equal(next.status, 201);
       await inbound(new URL(next.data.verificationUrl).searchParams.get("text"), `${targetPhone}@c.us`);
-      assert.equal((await req("GET", `/api/registrations/status?requestId=${next.data.requestId}`)).data.status, "pending_approval");
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${next.data.requestId}`)).data.status, "active");
     });
     await check("pembatalan yang terlambat setelah persetujuan tetap menghentikan user", async () => {
       const candidate = await req("POST", "/api/registrations", { ...form, phone: "085700000025" });
       assert.equal(candidate.status, 201);
       await inbound(new URL(candidate.data.verificationUrl).searchParams.get("text"), "6285700000025@c.us");
-      const approved = await req("POST", `/admin/api/registrations/${candidate.data.requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf });
-      assert.equal(approved.status, 200);
+      assert.equal((await req("GET", `/api/registrations/status?requestId=${candidate.data.requestId}`)).data.status, "active");
       const cancelled = await require("../lib/registration").cancelRegistration(db, "6285700000025@c.us", "stop");
       assert.equal(cancelled, true);
       const user = await get("SELECT status,allow_remindcare FROM users WHERE wa_id = ?", ["6285700000025@c.us"]);
@@ -297,10 +300,7 @@ async function run() {
       const candidate = await req("POST", "/api/registrations", { ...form, phone: "085700000024" });
       assert.equal(candidate.status, 201);
       await inbound(new URL(candidate.data.verificationUrl).searchParams.get("text"), "6285700000024@c.us");
-      await Promise.all([
-        req("POST", `/admin/api/registrations/${candidate.data.requestId}/approve`, {}, { Cookie: cookie, "x-csrf-token": csrf }),
-        inbound("stop", "6285700000024@c.us"),
-      ]);
+      await inbound("stop", "6285700000024@c.us");
       const user = await get("SELECT status,allow_remindcare FROM users WHERE wa_id = ?", ["6285700000024@c.us"]);
       assert.ok(!user || user.status !== "active" || !user.allow_remindcare);
     });
