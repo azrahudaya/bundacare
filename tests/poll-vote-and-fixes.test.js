@@ -251,6 +251,39 @@ function makeClient(sent) {
     assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: [0] }), "Sudah");
     assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: [] }), null);
     assert.strictEqual(mod.extractPollResponse(null), null);
+    // Format baru WhatsApp Web (ArrayBuffer / Uint8Array)
+    const buf0 = new Uint8Array([0]).buffer;
+    const buf1 = new Uint8Array([1]).buffer;
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: buf0 }), "Sudah");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: buf1 }), "Belum");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: new Uint8Array([0]) }), "Sudah");
+    assert.strictEqual(mod.extractPollResponse({ selectedOptionLocalIds: new Uint8Array([1]) }), "Belum");
+  });
+
+  await test("handleVoteUpdate mendukung parentMsgKey berupa string", async () => {
+    const STR_USER = "62899998888@c.us";
+    const STR_MSG_ID = `true_${STR_USER}_poll_str_test`;
+    await db.run(
+      `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, is_blocked, created_at, updated_at)
+       VALUES (?, 'Ibu String Key', 'active', 1, '10:00', ?, ?, 1, 0, 0, datetime('now'), datetime('now'))`,
+      [STR_USER, today, STR_MSG_ID],
+    );
+    const sent = [];
+    const client = makeClient(sent);
+    await mod.__handleVoteUpdateForTest(db, client, {
+      voter: STR_USER,
+      parentMsgKey: STR_MSG_ID,
+      selectedOptionLocalIds: [0],
+    });
+    const log = await new Promise((resolve, reject) =>
+      db.get(
+        "SELECT response FROM reminder_logs WHERE wa_id = ? AND reminder_date = ?",
+        [STR_USER, today],
+        (err, r) => (err ? reject(err) : resolve(r)),
+      ),
+    );
+    assert.strictEqual(log.response, "Sudah");
+    assert.ok(sent.some((m) => /Terima kasih/i.test(m.body)));
   });
 
   db.close();

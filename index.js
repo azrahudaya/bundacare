@@ -4591,10 +4591,22 @@ function parsePollAnswer(input) {
     return null;
   }
   const normalized = input.trim().toLowerCase();
-  if (normalized.includes("sudah") || normalized.includes("udah")) {
+  if (
+    normalized === "1" ||
+    normalized.startsWith("1.") ||
+    normalized.includes("sudah") ||
+    normalized.includes("udah") ||
+    normalized.includes("done") ||
+    normalized.includes("sdh")
+  ) {
     return "Sudah";
   }
-  if (normalized.includes("belum")) {
+  if (
+    normalized === "2" ||
+    normalized.startsWith("2.") ||
+    normalized.includes("belum") ||
+    normalized.includes("blm")
+  ) {
     return "Belum";
   }
   return null;
@@ -7309,8 +7321,16 @@ function extractPollResponse(vote) {
       return opt.localId === 0 ? "Sudah" : opt.localId === 1 ? "Belum" : null;
     }
   }
-  if (Array.isArray(vote.selectedOptionLocalIds) && vote.selectedOptionLocalIds.length > 0) {
-    const id = vote.selectedOptionLocalIds[0];
+  let localIds = vote.selectedOptionLocalIds;
+  if (localIds instanceof ArrayBuffer || ArrayBuffer.isView(localIds)) {
+    try {
+      localIds = Array.from(new Uint8Array(localIds));
+    } catch (_) {
+      localIds = [];
+    }
+  }
+  if (Array.isArray(localIds) && localIds.length > 0) {
+    const id = localIds[0];
     return id === 0 ? "Sudah" : id === 1 ? "Belum" : null;
   }
   return null;
@@ -7350,15 +7370,37 @@ async function fetchStoredPollVotes(client, pollMessageId) {
   if (client.pupPage && typeof client.pupPage.evaluate === "function") {
     try {
       const rows = await client.pupPage.evaluate(async (msgId) => {
-        const MsgKey = window.require("WAWebMsgKey").fromString(msgId);
         const table = window.require("WAWebPollsVotesSchema").getTable();
-        const items = await table.equals(["parentMsgKey"], MsgKey.toString());
+        let items = [];
+        try {
+          items = await table.equals(["parentMsgKey"], msgId);
+        } catch (_) {}
+        if (!items || items.length === 0) {
+          try {
+            const MsgKey = window.require("WAWebMsgKey").fromString(msgId);
+            items = await table.equals(["parentMsgKey"], MsgKey.toString());
+          } catch (_) {}
+        }
+        if (!items || items.length === 0) {
+          try {
+            const stanza = String(msgId).split("_").pop();
+            const all = await table.all();
+            items = (all || []).filter((item) => {
+              const itemStanza = String(item.parentMsgKey || "").split("_").pop();
+              return itemStanza && itemStanza === stanza;
+            });
+          } catch (_) {}
+        }
         return (items || []).map((item) => {
           let selected = [];
-          try {
-            selected = Array.from(new Uint8Array(item.selectedOptionLocalIds));
-          } catch (_) {
-            selected = [];
+          if (item.selectedOptionLocalIds instanceof ArrayBuffer || ArrayBuffer.isView(item.selectedOptionLocalIds)) {
+            try {
+              selected = Array.from(new Uint8Array(item.selectedOptionLocalIds));
+            } catch (_) {
+              selected = [];
+            }
+          } else if (Array.isArray(item.selectedOptionLocalIds)) {
+            selected = item.selectedOptionLocalIds;
           }
           return {
             voter: item.sender ? String(item.sender._serialized || item.sender) : null,
@@ -7395,16 +7437,18 @@ async function reconcilePollVotes(db, client) {
     return { checked: 0, recorded: 0 };
   }
   const today = toDateKey(nowWib());
-  // Hanya user yang pengingatnya sudah keluar hari ini dan belum punya jawaban tercatat.
+  // Periksa user yang pengingatnya sudah keluar dan belum punya jawaban tercatat
+  // (utamakan hari pengingat terakhirnya).
   const rows = await dbAll(
     db,
-    `SELECT u.* FROM users u
+    `SELECT u.*, COALESCE(u.last_reminder_date, ?) AS target_date
+     FROM users u
      LEFT JOIN reminder_logs r
-       ON r.wa_id = u.wa_id AND r.reminder_date = ?
+       ON r.wa_id = u.wa_id AND r.reminder_date = COALESCE(u.last_reminder_date, ?)
      WHERE u.status = 'active'
        AND u.allow_remindcare = 1
        AND u.is_blocked = 0
-       AND u.last_reminder_date = ?
+       AND u.last_reminder_date IS NOT NULL
        AND u.last_poll_message_id IS NOT NULL
        AND (r.response IS NULL OR r.response = '')`,
     [today, today],
@@ -7413,7 +7457,25 @@ async function reconcilePollVotes(db, client) {
   let recorded = 0;
   for (const user of rows) {
     checked += 1;
+    const targetDate = user.last_reminder_date || user.target_date || today;
     try {
+      // Pastikan chat termuat di WhatsApp Web agar pesan poll vote terdekripsi
+      if (client.pupPage && typeof client.pupPage.evaluate === "function" && user.wa_id) {
+        try {
+          await client.pupPage.evaluate(async (targetId) => {
+            if (window.WWebJS && typeof window.WWebJS.getChat === "function") {
+              const c = await window.WWebJS.getChat(targetId, { getAsModel: false });
+              if (c && window.require) {
+                const cmdMod = window.require("WAWebCmd");
+                if (cmdMod && cmdMod.Cmd && typeof cmdMod.Cmd.openChatBottom === "function") {
+                  await cmdMod.Cmd.openChatBottom({ chat: c });
+                }
+              }
+            }
+          }, user.wa_id);
+        } catch (_) {}
+      }
+
       const votes = await fetchStoredPollVotes(client, user.last_poll_message_id);
       for (const vote of votes || []) {
         const response = extractPollResponse(vote);
@@ -7430,11 +7492,11 @@ async function reconcilePollVotes(db, client) {
         }
         // Catat tanpa membalas: vote ini sudah lewat, balasan "terima kasih" akan terasa
         // aneh kalau dikirim terlambat. Tujuannya supaya data masuk ke panel admin.
-        const result = await recordDailyResponse(db, user.wa_id, today, response);
+        const result = await recordDailyResponse(db, user.wa_id, targetDate, response);
         if (result.allowed) {
           recorded += 1;
           console.log(
-            `Rekonsiliasi vote: ${user.wa_id} -> ${response} (${today})`,
+            `Rekonsiliasi vote: ${user.wa_id} -> ${response} (${targetDate})`,
           );
         }
         break;
@@ -7489,12 +7551,16 @@ async function handleVoteUpdate(db, client, vote) {
     pollMessageId = vote.parentMessage.id._serialized || sentMessageId(vote.parentMessage);
   }
   if (!pollMessageId && vote.parentMsgKey) {
-    if (vote.parentMsgKey._serialized) {
+    if (typeof vote.parentMsgKey === "string") {
+      pollMessageId = vote.parentMsgKey;
+    } else if (vote.parentMsgKey._serialized) {
       pollMessageId = String(vote.parentMsgKey._serialized);
     } else if (vote.parentMsgKey.remote && vote.parentMsgKey.id) {
       pollMessageId = `${vote.parentMsgKey.fromMe ? "true" : "false"}_${vote.parentMsgKey.remote}_${vote.parentMsgKey.id}`;
     } else if (vote.parentMsgKey.id) {
       pollMessageId = String(vote.parentMsgKey.id);
+    } else {
+      pollMessageId = String(vote.parentMsgKey);
     }
   }
 

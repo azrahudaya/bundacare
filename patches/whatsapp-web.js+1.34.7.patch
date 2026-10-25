@@ -1,3 +1,111 @@
+diff --git a/node_modules/whatsapp-web.js/src/Client.js b/node_modules/whatsapp-web.js/src/Client.js
+index 800109e..3b23f8e 100644
+--- a/node_modules/whatsapp-web.js/src/Client.js
++++ b/node_modules/whatsapp-web.js/src/Client.js
+@@ -1199,37 +1199,75 @@ class Client extends EventEmitter {
+                     function: 'pollVoteTableMode.bulkUpsert',
+                 },
+                 async (module, origFunction, ...args) => {
+-                    const votes = await Promise.all(
+-                        args[0].map(async (vote) => {
+-                            const msgKey = vote.id;
+-                            const parentMsgKey = vote.pollUpdateParentKey;
+-                            const timestamp = vote.t / 1000;
+-                            const sender = vote.author ?? vote.from;
+-                            const senderUserJid = sender._serialized;
++                    let votes = [];
++                    try {
++                        const rawVotes = (args && args[0]) || [];
++                        votes = await Promise.all(
++                            rawVotes.map(async (vote) => {
++                                const msgKey = vote.msgKey || vote.id;
++                                const rawParent = vote.parentMsgKey || vote.pollUpdateParentKey;
++                                const parentSerialized = typeof rawParent === 'object' && rawParent
++                                    ? (rawParent._serialized || String(rawParent))
++                                    : String(rawParent || '');
++                                const parentMsgKey = rawParent;
++
++                                const timestamp = vote.senderTimestampMs
++                                    ? vote.senderTimestampMs / 1000
++                                    : vote.t
++                                      ? vote.t / 1000
++                                      : Date.now() / 1000;
++
++                                const rawSender = vote.sender || vote.author || vote.from;
++                                const sender = typeof rawSender === 'object' && rawSender
++                                    ? (rawSender._serialized || String(rawSender))
++                                    : String(rawSender || '');
++                                const senderUserJid = sender;
++
++                                let selectedOptionLocalIds = [];
++                                if (vote.selectedOptionLocalIds instanceof ArrayBuffer || ArrayBuffer.isView(vote.selectedOptionLocalIds)) {
++                                    try {
++                                        selectedOptionLocalIds = Array.from(new Uint8Array(vote.selectedOptionLocalIds));
++                                    } catch (_) {
++                                        selectedOptionLocalIds = [];
++                                    }
++                                } else if (Array.isArray(vote.selectedOptionLocalIds)) {
++                                    selectedOptionLocalIds = vote.selectedOptionLocalIds;
++                                }
+ 
+-                            let parentMessage = Msg.get(
+-                                parentMsgKey._serialized,
+-                            );
+-                            if (!parentMessage) {
+-                                const fetched = await Msg.getMessagesById([
+-                                    parentMsgKey._serialized,
+-                                ]);
+-                                parentMessage = fetched?.messages?.[0] || null;
+-                            }
++                                let parentMessage = null;
++                                if (parentSerialized) {
++                                    parentMessage = Msg.get(parentSerialized);
++                                    if (!parentMessage) {
++                                        try {
++                                            const fetched = await Msg.getMessagesById([parentSerialized]);
++                                            parentMessage = fetched?.messages?.[0] || null;
++                                        } catch (_) {}
++                                    }
++                                }
+ 
+-                            return {
+-                                ...vote,
+-                                msgKey,
+-                                sender,
+-                                parentMsgKey,
+-                                senderUserJid,
+-                                timestamp,
+-                                parentMessage,
+-                            };
+-                        }),
+-                    );
++                                return {
++                                    ...vote,
++                                    msgKey,
++                                    sender,
++                                    parentMsgKey: parentSerialized || parentMsgKey,
++                                    senderUserJid,
++                                    timestamp,
++                                    selectedOptionLocalIds,
++                                    parentMessage: parentMessage ? { id: parentMessage.id, pollOptions: parentMessage.pollOptions } : null,
++                                };
++                            }),
++                        );
++                    } catch (err) {
++                        console.warn('Gagal memproses payload vote:', err && err.message);
++                    }
+ 
+-                    window.onPollVoteEvent(votes);
++                    try {
++                        if (votes && votes.length > 0 && typeof window.onPollVoteEvent === 'function') {
++                            window.onPollVoteEvent(votes);
++                        }
++                    } catch (err) {
++                        console.warn('Gagal memancarkan event vote:', err && err.message);
++                    }
+ 
+                     return origFunction.apply(module, args);
+                 },
 diff --git a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
 index 540078a..bbadd21 100644
 --- a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
