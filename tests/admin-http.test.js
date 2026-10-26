@@ -146,10 +146,10 @@ async function run() {
     sessionCookie = cookie.split(";")[0];
   });
 
-  await test("dashboard terbuka dengan sesi dan memuat panel akses", async () => {
+  await test("dashboard terbuka dengan sesi dan memuat panel utama", async () => {
     const res = await request("GET", "/admin", { headers: { Cookie: sessionCookie } });
     assert.strictEqual(res.status, 200);
-    assert.ok(res.body.includes("Akses nomor"), "panel akses nomor harus dirender");
+    assert.ok(res.body.includes("Daftar ibu"), "panel daftar ibu harus dirender");
     csrf = (res.body.match(/name="csrf-token" content="([^"]+)"/) || [])[1];
     assert.ok(csrf, "token CSRF harus tersedia");
   });

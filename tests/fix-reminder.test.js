@@ -75,13 +75,11 @@ async function run() {
     assert.strictEqual(mod.normalizeOperatorNumber("nomor bidan"), null);
   });
 
-  await test("dashboard admin memuat panel akses nomor", () => {
+  await test("dashboard admin memuat daftar ibu dan status bot", () => {
     const html = mod.renderAdminDashboardPage({ nonce: "n", csrf: "c" });
-    assert.ok(html.includes("Akses nomor"));
-    assert.ok(html.includes('id="access-form"'));
-    assert.ok(html.includes('id="access-body"'));
-    assert.ok(html.includes('id="access-count"'));
-    assert.ok(html.includes("/admin/api/allowlist"));
+    assert.ok(html.includes("Daftar ibu"));
+    assert.ok(html.includes('id="users-body"'));
+    assert.ok(html.includes('id="status-panel"'));
   });
 
   await test("resolveSenderIdentity memetakan @lid ke nomor walau kontak tidak terbaca", async () => {

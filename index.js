@@ -2545,20 +2545,72 @@ function renderAdminDashboardPage(options = {}) {
     <meta name="csrf-token" content="${csrf}">
     <title>bundacare Admin</title>
     <style nonce="${nonce}">${ADMIN_CSS}
-      .kv.kv-6 > div { border-top: none; }
-      .modes { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
-      .note.ok { color: var(--ok); }
-      .access-form { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
-      .access-form .field { flex: 1 1 190px; }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .stat-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--r-3);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .stat-card .stat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      .stat-card .stat-label {
+        color: var(--muted);
+        font-size: 11.5px;
+        font-weight: 550;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .stat-card .stat-val {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        line-height: 1.2;
+      }
+      .stat-card .stat-sub {
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .dashboard-grid-2 {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 12px;
+      }
       .week-table { width: 100%; border-collapse: collapse; }
       .week-table th, .week-table td { padding: 7px 12px; text-align: left; border-top: 1px solid var(--line); }
-      .week-table thead th { border-top: none; color: var(--muted); font-weight: 600; }
+      .week-table thead th { border-top: none; color: var(--muted); font-weight: 600; font-size: 11.5px; background: #fafafa; }
       .week-table th.num, .week-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
       .week-table tbody tr.is-today td { font-weight: 600; }
       .week-table td.bar { width: 34%; }
-      .week-bar { display: block; height: 8px; margin-top: 4px; border-radius: var(--r-1); background: var(--line); overflow: hidden; }
+      .week-bar { display: block; height: 6px; margin-top: 4px; border-radius: var(--r-1); background: var(--line); overflow: hidden; }
       .week-bar span { display: block; height: 100%; background: var(--ok); }
       .week-bar.is-none span { background: var(--line-strong); }
+      .modes { display: flex; gap: 6px; flex-wrap: wrap; }
+      .note.ok { color: var(--ok); }
+      @media (max-width: 900px) {
+        .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .dashboard-grid-2 { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 480px) {
+        .stat-grid { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
@@ -2594,23 +2646,7 @@ function renderAdminDashboardPage(options = {}) {
         <button type="button" id="error-retry">${icon("rotate")}Coba lagi</button>
       </div>
 
-      <section class="panel" id="status-panel" aria-labelledby="status-title">
-        <div class="panel-head">
-          <h2 id="status-title">${icon("plug")}Status bot</h2>
-          <span class="badge" id="status-badge">memuat</span>
-        </div>
-        <dl class="kv kv-6">
-          <div><dt>Sesi WhatsApp</dt><dd id="fact-client">-</dd></div>
-          <div><dt>Siap sejak</dt><dd id="fact-ready">-</dd></div>
-          <div><dt>Jendela kirim</dt><dd id="fact-window">-</dd></div>
-          <div><dt>Kuota hari ini</dt><dd id="fact-quota" class="num">-</dd></div>
-          <div><dt>Terkirim</dt><dd id="fact-sent" class="num">-</dd></div>
-          <div><dt>Gagal</dt><dd id="fact-failed" class="num">-</dd></div>
-        </dl>
-        <div class="modes" id="status-chips"></div>
-        <p class="note" id="status-note" role="status" aria-live="polite" style="padding:0 12px 12px;margin:0" hidden></p>
-      </section>
-
+      <!-- Tautkan QR (Hanya tampil saat sesi WhatsApp putus atau butuh pairing) -->
       <section class="panel" id="qr-panel" aria-labelledby="qr-title" hidden>
         <div class="panel-head">
           <h2 id="qr-title">${icon("link")}Tautkan WhatsApp</h2>
@@ -2626,7 +2662,26 @@ function renderAdminDashboardPage(options = {}) {
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="action-title">
+      <!-- Status Bot & Jendela Kirim -->
+      <section class="panel" id="status-panel" aria-labelledby="status-title">
+        <div class="panel-head">
+          <h2 id="status-title">${icon("plug")}Status bot & WhatsApp</h2>
+          <span class="badge" id="status-badge">memuat</span>
+        </div>
+        <dl class="kv kv-6">
+          <div><dt>Sesi WhatsApp</dt><dd id="fact-client">-</dd></div>
+          <div><dt>Siap sejak</dt><dd id="fact-ready">-</dd></div>
+          <div><dt>Jendela kirim</dt><dd id="fact-window">-</dd></div>
+          <div><dt>Kuota hari ini</dt><dd id="fact-quota" class="num">-</dd></div>
+          <div><dt>Terkirim</dt><dd id="fact-sent" class="num">-</dd></div>
+          <div><dt>Gagal</dt><dd id="fact-failed" class="num">-</dd></div>
+        </dl>
+        <div class="modes" id="status-chips" style="padding:0 12px 10px"></div>
+        <p class="note" id="status-note" role="status" aria-live="polite" style="padding:0 12px 10px;margin:0" hidden></p>
+      </section>
+
+      <!-- Perlu Tindakan (Tampil jika ada masalah/pasien sepi) -->
+      <section class="panel" aria-labelledby="action-title" style="margin-top:12px;margin-bottom:12px">
         <div class="panel-head">
           <h2 id="action-title">${icon("alert")}Perlu tindakan</h2>
           <span class="badge" id="action-count">memuat</span>
@@ -2637,44 +2692,46 @@ function renderAdminDashboardPage(options = {}) {
         </ul>
       </section>
 
-      <section class="panel" aria-labelledby="today-title">
-        <div class="panel-head">
-          <h2 id="today-title">${icon("clock")}Hari ini</h2>
-          <span class="muted" id="today-date"></span>
+      <!-- 4 Kartu Metrik Hari Ini -->
+      <div class="stat-grid" id="today-panel">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">${icon("clock")}Menunggu Respon</span>
+            <span class="muted num" id="today-date"></span>
+          </div>
+          <div class="stat-val" id="today-waiting">-</div>
+          <div class="stat-sub">Belum membalas polling hari ini</div>
         </div>
-        <div class="metrics">
-          <div class="metric"><div class="k">Menunggu jawaban</div><div class="v" id="today-waiting">-</div></div>
-          <div class="metric"><div class="k">Dijawab sudah</div><div class="v" id="today-sudah">-</div></div>
-          <div class="metric"><div class="k">Dijawab belum</div><div class="v" id="today-belum">-</div></div>
-          <div class="metric"><div class="k">User tidak berjalan</div><div class="v" id="today-blocked">-</div></div>
-        </div>
-      </section>
 
-      <section class="panel" aria-labelledby="week-title">
-        <div class="panel-head">
-          <h2 id="week-title">${icon("pulse")}Kepatuhan 7 hari</h2>
-          <span class="badge" id="week-badge">memuat</span>
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">${icon("check")}Sudah Minum Obat</span>
+            <span class="badge badge-ok" id="today-rate-badge">-</span>
+          </div>
+          <div class="stat-val" id="today-sudah">-</div>
+          <div class="stat-sub">Konfirmasi minum tablet FE</div>
         </div>
-        <div class="table-wrap">
-          <table class="week-table">
-            <thead>
-              <tr>
-                <th scope="col">Tanggal</th>
-                <th scope="col" class="num">Terkirim</th>
-                <th scope="col" class="num">Dijawab</th>
-                <th scope="col" class="num">Sudah</th>
-                <th scope="col" class="num">Belum</th>
-                <th scope="col">Persen dijawab</th>
-              </tr>
-            </thead>
-            <tbody id="week-body" aria-busy="true">
-              <tr><td colspan="6" class="muted">Memuat.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="note" id="week-note" role="status" aria-live="polite" style="padding:10px 12px 12px;margin:0">Angka diambil dari catatan pengingat. Hari tanpa catatan tampil sebagai nol.</p>
-      </section>
 
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">${icon("alert")}Belum Minum Obat</span>
+            <span class="badge badge-warn">tinjau</span>
+          </div>
+          <div class="stat-val" id="today-belum">-</div>
+          <div class="stat-sub">Konfirmasi belum minum obat</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">${icon("users")}Total Pasien</span>
+            <span class="badge badge-ok">aktif</span>
+          </div>
+          <div class="stat-val" id="total-patients-card">-</div>
+          <div class="stat-sub" id="total-patients-sub"><span id="today-blocked" class="num">-</span> dijeda</div>
+        </div>
+      </div>
+
+      <!-- Daftar Pasien (Tabel Utama) -->
       <section class="panel" aria-labelledby="users-title">
         <div class="panel-head">
           <h2 id="users-title">${icon("users")}Daftar ibu</h2>
@@ -2689,17 +2746,16 @@ function renderAdminDashboardPage(options = {}) {
           </div>
         </div>
         <p class="note" id="users-note" hidden style="padding:10px 12px 0"></p>
-        <p class="muted" style="padding:0 12px 10px">Pengingat FE tablet tambah darah harian lewat WhatsApp.</p>
         <div class="table-wrap">
           <table>
             <caption id="users-count">memuat</caption>
             <thead>
               <tr>
-                <th scope="col">Nama</th>
+                <th scope="col">Nama & Nomor</th>
                 <th scope="col">Status</th>
-                <th scope="col">Jam</th>
-                <th scope="col">Jawaban terakhir</th>
-                <th scope="col">Kepatuhan 7 hari</th>
+                <th scope="col">Jam Pengingat</th>
+                <th scope="col">Jawaban Terakhir</th>
+                <th scope="col">Kepatuhan 7 Hari</th>
               </tr>
             </thead>
             <tbody id="users-body" aria-busy="true">
@@ -2709,137 +2765,81 @@ function renderAdminDashboardPage(options = {}) {
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="access-title">
-        <div class="panel-head">
-          <h2 id="access-title">${icon("shield")}Akses nomor</h2>
-          <span class="badge" id="access-mode">memuat</span>
-        </div>
-        <div class="panel-body">
-          <form id="access-form" class="access-form">
-            <div class="field">
-              <label for="access-number">Nomor WhatsApp</label>
-              <input id="access-number" name="wa_id" type="text" inputmode="numeric" autocomplete="off" placeholder="6281234567890" required>
-            </div>
-            <div class="field">
-              <label for="access-note">Catatan</label>
-              <input id="access-note" name="note" type="text" maxlength="80" placeholder="opsional">
-            </div>
-            <button type="submit" class="btn-primary" id="access-submit">${icon("shield")}Izinkan nomor</button>
-          </form>
-          <p class="note" id="access-status" role="status" aria-live="polite" hidden style="margin:10px 0 0"></p>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <caption id="access-count">memuat</caption>
-            <thead>
-              <tr>
-                <th scope="col">Nomor</th>
-                <th scope="col">Sumber</th>
-                <th scope="col">Catatan</th>
-                <th scope="col">Ditambahkan</th>
-                <th scope="col">Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="access-body" aria-busy="true">
-              <tr><td colspan="5" class="muted">Memuat.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <!-- Grid 2 Kolom: Kepatuhan 7 Hari & Aktivitas Pengingat -->
+      <div class="dashboard-grid-2">
+        <section class="panel" aria-labelledby="week-title" style="margin-top:0">
+          <div class="panel-head">
+            <h2 id="week-title">${icon("pulse")}Kepatuhan 7 hari</h2>
+            <span class="badge" id="week-badge">memuat</span>
+          </div>
+          <div class="table-wrap">
+            <table class="week-table">
+              <thead>
+                <tr>
+                  <th scope="col">Tanggal</th>
+                  <th scope="col" class="num">Terkirim</th>
+                  <th scope="col" class="num">Dijawab</th>
+                  <th scope="col" class="num">Sudah</th>
+                  <th scope="col" class="num">Belum</th>
+                  <th scope="col">Persen</th>
+                </tr>
+              </thead>
+              <tbody id="week-body" aria-busy="true">
+                <tr><td colspan="6" class="muted">Memuat.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note" id="week-note" role="status" aria-live="polite" style="padding:8px 12px 10px;margin:0;font-size:11px">Angka diambil dari riwayat catatan pengingat harian.</p>
+        </section>
 
-      <section class="panel" aria-labelledby="registrations-title">
-        <div class="panel-head"><h2 id="registrations-title">Pendaftar menunggu persetujuan</h2><button type="button" id="registrations-refresh">Muat ulang</button></div>
-        <p class="note" id="registrations-note" role="status" aria-live="polite" style="padding:10px 12px">Memuat.</p>
-        <div class="table-wrap"><table><thead><tr><th scope="col">Nama</th><th scope="col">Nomor</th><th scope="col">Jam</th><th scope="col">Aksi</th></tr></thead><tbody id="registrations-body"></tbody></table></div>
-      </section>
-
-      <section class="panel" aria-labelledby="logs-title">
-        <div class="panel-head">
-          <h2 id="logs-title">${icon("list")}Catatan pengingat</h2>
-          <button type="button" id="logs-toggle">${icon("list")}Tampilkan 50</button>
-        </div>
-        <p class="note" id="logs-note" hidden style="padding:10px 12px 0"></p>
-        <ul class="feed" id="logs-body" aria-busy="true">
-          <li class="empty">Memuat.</li>
-        </ul>
-      </section>
+        <section class="panel" aria-labelledby="logs-title" style="margin-top:0">
+          <div class="panel-head">
+            <h2 id="logs-title">${icon("list")}Catatan pengingat</h2>
+            <button type="button" id="logs-toggle">${icon("list")}Tampilkan 50</button>
+          </div>
+          <p class="note" id="logs-note" hidden style="padding:10px 12px 0"></p>
+          <ul class="feed" id="logs-body" aria-busy="true">
+            <li class="empty">Memuat.</li>
+          </ul>
+        </section>
+      </div>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script nonce="${nonce}">
-      const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-      function csrfHeaders(extra) { return Object.assign({ 'X-CSRF-Token': CSRF_TOKEN }, extra || {}); }
-      async function loadRegistrations() {
-        const body = document.getElementById('registrations-body');
-        const note = document.getElementById('registrations-note');
-        note.textContent = 'Memuat.';
-        body.replaceChildren();
-        try {
-          const response = await fetch('/admin/api/registrations', { credentials: 'same-origin' });
-          if (!response.ok) throw new Error('Daftar belum tersedia.');
-          const data = await response.json();
-          note.textContent = data.registrations.length ? data.registrations.length + ' pendaftar menunggu.' : 'Belum ada pendaftar menunggu.';
-          for (const row of data.registrations) {
-            const tr = document.createElement('tr');
-            for (const value of [row.name, row.phone, row.reminderTime]) {
-              const cell = document.createElement('td');
-              cell.textContent = value || '-';
-              tr.appendChild(cell);
-            }
-            const action = document.createElement('td');
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = 'Setujui';
-            button.addEventListener('click', async () => {
-              if (!window.confirm('Setujui pendaftar ini dan aktifkan pengingat?')) return;
-              button.disabled = true;
-              try {
-                const result = await fetch('/admin/api/registrations/' + encodeURIComponent(row.requestId) + '/approve', {
-                  method: 'POST', credentials: 'same-origin', headers: csrfHeaders({ 'Content-Type': 'application/json' }), body: '{}'
-                });
-                if (!result.ok) throw new Error('Persetujuan gagal. Muat ulang dan coba lagi.');
-                await loadRegistrations();
-              } catch (err) { note.textContent = err.message; button.disabled = false; }
-            });
-            action.appendChild(button);
-            tr.appendChild(action);
-            body.appendChild(tr);
-          }
-        } catch (err) { note.textContent = err.message; }
-      }
-      document.getElementById('registrations-refresh').addEventListener('click', loadRegistrations);
-      loadRegistrations();
+      const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+      function csrfHeaders(extra) { return Object.assign({ "X-CSRF-Token": CSRF_TOKEN }, extra || {}); }
       const ICON_LINK = '${icon("link", 14)}';
       const ICON_CHECK_BUTTON = '${icon("check", 14)}';
       const ICON_SHIELD_BUTTON = '${icon("shield", 14)}';
       const ICON_ROTATE_BUTTON = '${icon("rotate", 14)}';
-      const toast = document.getElementById('toast');
+      const toast = document.getElementById("toast");
       function showToast(text) {
         toast.textContent = text;
-        toast.classList.add('show');
+        toast.classList.add("show");
         clearTimeout(window.__toastTimer);
-        window.__toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+        window.__toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
       }
-      function fmt(v) { return v === null || v === undefined || v === '' ? '-' : v; }
+      function fmt(v) { return v === null || v === undefined || v === "" ? "-" : v; }
       function fmtDt(v) {
-        if (!v) return '-';
+        if (!v) return "-";
         const d = new Date(v);
-        return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
       }
       function clampPct(v) { return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0; }
       function classifyPhase(user) {
-        if (user.status === 'onboarding') return 'onboarding';
-        if (user.status === 'paused') return 'dijeda';
-        if (user.status === 'completed') return 'selesai';
-        return 'aktif';
+        if (user.status === "onboarding") return "onboarding";
+        if (user.status === "paused") return "dijeda";
+        if (user.status === "completed") return "selesai";
+        return "aktif";
       }
-      const PHASE_LABEL = { onboarding: 'Belum lengkap', aktif: 'Aktif', dijeda: 'Dijeda', selesai: 'Selesai' };
-      const PHASE_TONE = { onboarding: 'badge badge-accent', aktif: 'badge badge-ok', dijeda: 'badge badge-warn', selesai: 'badge' };
-      const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Belum lengkap' };
-      const STATUS_TONE = { active: 'badge badge-ok', paused: 'badge badge-warn', completed: 'badge', onboarding: 'badge badge-accent' };
+      const PHASE_LABEL = { onboarding: "Belum lengkap", aktif: "Aktif", dijeda: "Dijeda", selesai: "Selesai" };
+      const PHASE_TONE = { onboarding: "badge badge-accent", aktif: "badge badge-ok", dijeda: "badge badge-warn", selesai: "badge" };
+      const STATUS_LABEL = { active: "Aktif", paused: "Dijeda", completed: "Selesai", onboarding: "Belum lengkap" };
+      const STATUS_TONE = { active: "badge badge-ok", paused: "badge badge-warn", completed: "badge", onboarding: "badge badge-accent" };
       function badge(tone, text) {
-        const span = document.createElement('span');
+        const span = document.createElement("span");
         span.className = tone;
         span.textContent = text;
         return span;
@@ -2853,14 +2853,14 @@ function renderAdminDashboardPage(options = {}) {
         return {
           fe: logs > 0 ? clampPct((answered * 100) / logs) : 0,
           pp: ppTotal > 0 ? clampPct((Number(user.postpartum_sudah || 0) * 100) / ppTotal) : 0,
-          labor: done ? 'Selesai' : (Number(user.delivery_data_step || 0) > 0 ? 'Proses' : 'Belum'),
+          labor: done ? "Selesai" : (Number(user.delivery_data_step || 0) > 0 ? "Proses" : "Belum"),
           started: logs > 0 || ppTotal > 0 || done,
         };
       }
       async function fetchJson(url, options) {
-        const res = await fetch(url, Object.assign({ headers: csrfHeaders({ Accept: 'application/json' }) }, options || {}));
-        if (res.status === 401) { window.location.href = '/admin/login?expired=1'; throw new Error('Sesi berakhir'); }
-        if (!res.ok) throw new Error('kode ' + res.status);
+        const res = await fetch(url, Object.assign({ headers: csrfHeaders({ Accept: "application/json" }) }, options || {}));
+        if (res.status === 401) { window.location.href = "/admin/login?expired=1"; throw new Error("Sesi berakhir"); }
+        if (!res.ok) throw new Error("kode " + res.status);
         return res.json();
       }
       let healthCache = null;
@@ -2868,9 +2868,8 @@ function renderAdminDashboardPage(options = {}) {
       let usersCache = [];
       let logsCache = [];
       let logsOpen = false;
-      let phaseFilter = 'all';
-      let keyword = '';
-      let accessCache = null;
+      let phaseFilter = "all";
+      let keyword = "";
 
       function renderStatus() {
         const health = healthCache || {};
@@ -2880,114 +2879,110 @@ function renderAdminDashboardPage(options = {}) {
         const runtime = health.runtime || {};
         const ready = !!client.ready;
         const paused = !!guard.paused;
-        let tone = 'badge badge-ok';
-        let text = 'Siap';
-        if (!ready) { tone = 'badge badge-bad'; text = 'Sesi putus'; }
-        else if (paused) { tone = 'badge badge-bad'; text = 'Dijeda'; }
-        else if (runtime.maintenance_mode) { tone = 'badge badge-bad'; text = 'Mode perawatan'; }
-        else if (runtime.dry_run) { tone = 'badge badge-warn'; text = 'Mode simulasi'; }
-        else if (Number(guard.failures || 0) > 0) { tone = 'badge badge-warn'; text = 'Ada gagal kirim'; }
-        const badgeNode = document.getElementById('status-badge');
+        let tone = "badge badge-ok";
+        let text = "Siap";
+        if (!ready) { tone = "badge badge-bad"; text = "Sesi putus"; }
+        else if (paused) { tone = "badge badge-bad"; text = "Dijeda"; }
+        else if (runtime.maintenance_mode) { tone = "badge badge-bad"; text = "Mode perawatan"; }
+        else if (runtime.dry_run) { tone = "badge badge-warn"; text = "Mode simulasi"; }
+        else if (Number(guard.failures || 0) > 0) { tone = "badge badge-warn"; text = "Ada gagal kirim"; }
+        const badgeNode = document.getElementById("status-badge");
         badgeNode.className = tone;
         badgeNode.textContent = text;
-        setText('fact-client', ready ? 'Tersambung' : 'Tidak tersambung');
-        setText('fact-ready', client.lastReadyAt ? fmtDt(client.lastReadyAt) : 'belum pernah');
+        setText("fact-client", ready ? "Tersambung" : "Tidak tersambung");
+        setText("fact-ready", client.lastReadyAt ? fmtDt(client.lastReadyAt) : "belum pernah");
         const fullWindow = cfg.windowStartHour !== undefined && cfg.windowEndHour !== undefined
           && cfg.windowStartHour * 60 === cfg.windowEndHour * 60 + Number(cfg.windowEndMinute || 0);
         const win = cfg.windowStartHour === undefined
-          ? '-'
-          : (fullWindow ? '24 jam' : cfg.windowStartHour + ':00 sampai ' + cfg.windowEndHour + ':' + String(cfg.windowEndMinute || 0).padStart(2, '0'));
-        setText('fact-window', guard.withinSendWindow === false ? win + ', di luar jendela' : win);
-        setText('fact-quota', (guard.lastDay || 0) + ' / ' + (guard.dailyCap === undefined ? '-' : guard.dailyCap));
-        setText('fact-sent', String(guard.sent || 0));
-        setText('fact-failed', String(guard.failures || 0));
-        const chips = document.getElementById('status-chips');
-        chips.innerHTML = '';
+          ? "-"
+          : (fullWindow ? "24 jam" : cfg.windowStartHour + ":00 sampai " + cfg.windowEndHour + ":" + String(cfg.windowEndMinute || 0).padStart(2, "0"));
+        setText("fact-window", guard.withinSendWindow === false ? win + ", di luar jendela" : win);
+        setText("fact-quota", (guard.lastDay || 0) + " / " + (guard.dailyCap === undefined ? "-" : guard.dailyCap));
+        setText("fact-sent", String(guard.sent || 0));
+        setText("fact-failed", String(guard.failures || 0));
+        const chips = document.getElementById("status-chips");
+        chips.innerHTML = "";
         const mods = [
-          [runtime.maintenance_mode ? 'Perawatan aktif' : 'Perawatan mati', runtime.maintenance_mode ? 'badge badge-bad' : 'badge'],
-          [runtime.dry_run ? 'Simulasi aktif' : 'Kirim nyata', runtime.dry_run ? 'badge badge-warn' : 'badge badge-ok'],
-          [runtime.enforce_allowlist ? 'Allowlist aktif' : 'Allowlist mati', runtime.enforce_allowlist ? 'badge' : 'badge badge-warn'],
+          [runtime.maintenance_mode ? "Perawatan aktif" : "Perawatan mati", runtime.maintenance_mode ? "badge badge-bad" : "badge"],
+          [runtime.dry_run ? "Simulasi aktif" : "Kirim nyata", runtime.dry_run ? "badge badge-warn" : "badge badge-ok"],
         ];
         for (const [label, tone2] of mods) chips.appendChild(badge(tone2, label));
-        const modeBadge = document.getElementById('access-mode');
-        modeBadge.className = runtime.enforce_allowlist ? 'badge' : 'badge badge-warn';
-        modeBadge.textContent = runtime.enforce_allowlist ? 'Allowlist aktif' : 'Allowlist mati';
-        const note = document.getElementById('status-note');
+        const note = document.getElementById("status-note");
         if (health.alert) {
           note.hidden = false;
-          note.textContent = 'Alarm ' + health.alert.kind + ' ' + fmtDt(health.alert.at) + ': ' + (health.alert.detail || '');
+          note.textContent = "Alarm " + health.alert.kind + " " + fmtDt(health.alert.at) + ": " + (health.alert.detail || "");
         } else {
           note.hidden = true;
         }
       }
 
       const ACTIONS = {
-        resume: { label: 'Aktifkan', cls: 'btn-primary', icon: 'check' },
-        unblock: { label: 'Buka blokir', cls: 'btn', icon: 'shield' },
-        clear_send_failures: { label: 'Reset', cls: 'btn', icon: 'rotate' },
+        resume: { label: "Aktifkan", cls: "btn-primary", icon: "check" },
+        unblock: { label: "Buka blokir", cls: "btn", icon: "shield" },
+        clear_send_failures: { label: "Reset", cls: "btn", icon: "rotate" },
       };
       function pickAction(reason) {
-        if (reason === 'blocked') return 'unblock';
-        if (reason === 'send_failure') return 'clear_send_failures';
-        return 'resume';
+        if (reason === "blocked") return "unblock";
+        if (reason === "send_failure") return "clear_send_failures";
+        return "resume";
       }
       async function runAction(waId, action, button) {
         button.disabled = true;
         try {
-          const res = await fetchJson('/admin/api/users/' + encodeURIComponent(waId) + '/actions', {
-            method: 'POST',
-            headers: csrfHeaders({ 'Content-Type': 'application/json' }),
+          await fetchJson("/admin/api/users/" + encodeURIComponent(waId) + "/action", {
+            method: "POST",
             body: JSON.stringify({ action }),
           });
-          if (!res.ok) throw new Error(res.error || 'gagal');
-          showToast('Selesai: ' + (ACTIONS[action] || {}).label);
+          showToast("Tindakan dijalankan");
           await loadAll(false);
         } catch (err) {
-          showToast('Gagal: ' + err.message);
+          showToast("Gagal: " + err.message);
           button.disabled = false;
         }
       }
       function renderActions() {
-        const list = document.getElementById('action-list');
+        const list = document.getElementById("action-list");
         const items = (summaryCache && summaryCache.needsAction) || [];
-        list.innerHTML = '';
-        document.getElementById('action-count').textContent = items.length ? items.length + ' user' : 'tidak ada';
+        list.innerHTML = "";
+        document.getElementById("action-count").textContent = items.length ? items.length + " pasien" : "semua lancar";
         if (!items.length) {
-          const li = document.createElement('li');
-          li.className = 'empty';
-          li.textContent = 'Tidak ada yang perlu dikerjakan.';
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.style.color = "var(--ok)";
+          li.style.fontWeight = "500";
+          li.textContent = "Semua pengingat pasien berjalan normal, tidak ada kendala.";
           list.appendChild(li);
           return;
         }
         for (const item of items) {
-          const action = ACTIONS[pickAction(item.reason)] ? pickAction(item.reason) : 'resume';
+          const action = ACTIONS[pickAction(item.reason)] ? pickAction(item.reason) : "resume";
           const meta = ACTIONS[action];
-          const li = document.createElement('li');
-          li.className = 'task';
-          const left = document.createElement('div');
-          left.style.minWidth = '0';
-          const name = document.createElement('div');
-          name.className = 'task-name';
+          const li = document.createElement("li");
+          li.className = "task";
+          const left = document.createElement("div");
+          left.style.minWidth = "0";
+          const name = document.createElement("div");
+          name.className = "task-name";
           name.textContent = item.name || item.wa_id;
-          const why = document.createElement('div');
-          why.className = 'task-why';
+          const why = document.createElement("div");
+          why.className = "task-why";
           why.textContent = item.detail;
           left.appendChild(name);
           left.appendChild(why);
-          const right = document.createElement('div');
-          right.className = 'row';
-          const link = document.createElement('a');
-          link.className = 'btn btn-icon';
-          link.href = '/admin/users/' + encodeURIComponent(item.wa_id);
-          link.setAttribute('aria-label', 'Buka detail ' + (item.name || item.wa_id));
-          link.title = 'Detail';
+          const right = document.createElement("div");
+          right.className = "row";
+          const link = document.createElement("a");
+          link.className = "btn btn-icon";
+          link.href = "/admin/users/" + encodeURIComponent(item.wa_id);
+          link.setAttribute("aria-label", "Buka detail " + (item.name || item.wa_id));
+          link.title = "Detail";
           link.innerHTML = ICON_LINK;
-          const btn = document.createElement('button');
-          btn.type = 'button';
+          const btn = document.createElement("button");
+          btn.type = "button";
           btn.className = meta.cls;
-          btn.innerHTML = meta.icon === 'check' ? ICON_CHECK_BUTTON : (meta.icon === 'shield' ? ICON_SHIELD_BUTTON : ICON_ROTATE_BUTTON);
+          btn.innerHTML = meta.icon === "check" ? ICON_CHECK_BUTTON : (meta.icon === "shield" ? ICON_SHIELD_BUTTON : ICON_ROTATE_BUTTON);
           btn.appendChild(document.createTextNode(meta.label));
-          btn.addEventListener('click', () => runAction(item.wa_id, action, btn));
+          btn.addEventListener("click", () => runAction(item.wa_id, action, btn));
           right.appendChild(link);
           right.appendChild(btn);
           li.appendChild(left);
@@ -2999,62 +2994,69 @@ function renderAdminDashboardPage(options = {}) {
         const summary = summaryCache || {};
         const rem = summary.reminders || {};
         const users = summary.users || {};
-        setText('today-date', rem.date || '');
-        setText('today-waiting', fmt(rem.todayWaiting));
-        setText('today-sudah', fmt(rem.todaySudah));
-        setText('today-belum', fmt(rem.todayBelum));
-        setText('today-blocked', fmt(users.total === undefined ? '-' : users.total - (users.runnable || 0)));
+        setText("today-date", rem.date || "");
+        setText("today-waiting", fmt(rem.todayWaiting));
+        setText("today-sudah", fmt(rem.todaySudah));
+        setText("today-belum", fmt(rem.todayBelum));
+        setText("today-blocked", fmt(users.total === undefined ? "-" : users.total - (users.runnable || 0)));
+        const rateBadge = document.getElementById("today-rate-badge");
+        if (rateBadge) {
+          const sudah = Number(rem.todaySudah || 0);
+          const belum = Number(rem.todayBelum || 0);
+          const total = sudah + belum;
+          rateBadge.textContent = total > 0 ? Math.round((sudah / total) * 100) + "% patuh" : "hari ini";
+        }
       }
       function renderWeek() {
-        const tbody = document.getElementById('week-body');
-        tbody.setAttribute('aria-busy', 'false');
+        const tbody = document.getElementById("week-body");
+        tbody.setAttribute("aria-busy", "false");
         const rows = (summaryCache && summaryCache.weekly) || [];
-        const badge = document.getElementById('week-badge');
-        tbody.innerHTML = '';
+        const badgeNode = document.getElementById("week-badge");
+        tbody.innerHTML = "";
         if (!rows.length) {
-          const tr = document.createElement('tr');
-          const td = document.createElement('td');
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
           td.colSpan = 6;
-          td.className = 'muted';
-          td.textContent = 'Belum ada catatan pengingat.';
+          td.className = "muted";
+          td.textContent = "Belum ada catatan pengingat.";
           tr.appendChild(td);
           tbody.appendChild(tr);
-          badge.textContent = 'kosong';
+          badgeNode.textContent = "kosong";
           return;
         }
         const totalTerkirim = rows.reduce((sum, row) => sum + row.sent, 0);
         const totalDijawab = rows.reduce((sum, row) => sum + row.answered, 0);
-        badge.textContent = totalTerkirim > 0
-          ? Math.round((totalDijawab / totalTerkirim) * 100) + '% dijawab'
-          : 'belum ada pengingat';
+        badgeNode.textContent = totalTerkirim > 0
+          ? Math.round((totalDijawab / totalTerkirim) * 100) + "% dijawab"
+          : "belum ada pengingat";
         const hariTerakhir = rows[rows.length - 1].date;
         for (const row of rows) {
-          const tr = document.createElement('tr');
-          if (row.date === hariTerakhir) tr.className = 'is-today';
-          const tanggal = document.createElement('td');
+          const tr = document.createElement("tr");
+          if (row.date === hariTerakhir) tr.className = "is-today";
+          const tanggal = document.createElement("td");
           tanggal.textContent = row.date;
           tr.appendChild(tanggal);
           for (const angka of [row.sent, row.answered, row.sudah, row.belum]) {
-            const td = document.createElement('td');
-            td.className = 'num';
+            const td = document.createElement("td");
+            td.className = "num";
             td.textContent = String(angka);
             tr.appendChild(td);
           }
-          const sel = document.createElement('td');
-          sel.className = 'bar';
+          const sel = document.createElement("td");
+          sel.className = "bar";
           if (row.percent === null) {
-            const kosong = document.createElement('span');
-            kosong.className = 'muted';
-            kosong.textContent = 'tidak ada pengingat';
+            const kosong = document.createElement("span");
+            kosong.className = "muted";
+            kosong.textContent = "tidak ada pengingat";
             sel.appendChild(kosong);
           } else {
-            const teks = document.createElement('div');
-            teks.textContent = row.percent + ' persen';
-            const bar = document.createElement('span');
-            bar.className = row.percent === 0 ? 'week-bar is-none' : 'week-bar';
-            bar.setAttribute('aria-hidden', 'true');
-            const isi = document.createElement('span');
-            isi.style.width = row.percent + '%';
+            const teks = document.createElement("div");
+            teks.textContent = row.percent + " persen";
+            const bar = document.createElement("span");
+            bar.className = row.percent === 0 ? "week-bar is-none" : "week-bar";
+            bar.setAttribute("aria-hidden", "true");
+            const isi = document.createElement("span");
+            isi.style.width = row.percent + "%";
             bar.appendChild(isi);
             sel.appendChild(teks);
             sel.appendChild(bar);
@@ -3069,343 +3071,243 @@ function renderAdminDashboardPage(options = {}) {
         return counts;
       }
       function renderUsers() {
-        const tbody = document.getElementById('users-body');
-        tbody.setAttribute('aria-busy', 'false');
+        const tbody = document.getElementById("users-body");
+        tbody.setAttribute("aria-busy", "false");
         const counts = phaseCounts();
         const filtered = usersCache.filter((user) => {
-          if (phaseFilter !== 'all' && classifyPhase(user) !== phaseFilter) return false;
+          if (phaseFilter !== "all" && classifyPhase(user) !== phaseFilter) return false;
           if (!keyword) return true;
-          return String(user.wa_id || '').toLowerCase().includes(keyword) || String(user.name || '').toLowerCase().includes(keyword);
+          return String(user.wa_id || "").toLowerCase().includes(keyword) || String(user.name || "").toLowerCase().includes(keyword);
         });
-        for (const btn of document.querySelectorAll('.phase-filter')) {
-          const key = btn.getAttribute('data-phase-filter');
-          btn.setAttribute('aria-pressed', key === phaseFilter ? 'true' : 'false');
+        for (const btn of document.querySelectorAll(".phase-filter")) {
+          const key = btn.getAttribute("data-phase-filter");
+          btn.setAttribute("aria-pressed", key === phaseFilter ? "true" : "false");
         }
-        document.getElementById('users-count').textContent =
-          filtered.length + ' dari ' + usersCache.length + ' user · ' +
-          Object.keys(counts).map((k) => PHASE_LABEL[k] + ' ' + counts[k]).join(' · ');
-        tbody.innerHTML = '';
+        document.getElementById("users-count").textContent =
+          filtered.length + " dari " + usersCache.length + " ibu · " +
+          Object.keys(counts).map((k) => PHASE_LABEL[k] + " " + counts[k]).join(" · ");
+
+        const totalCard = document.getElementById("total-patients-card");
+        if (totalCard) totalCard.textContent = usersCache.length + " Ibu";
+        const totalSub = document.getElementById("total-patients-sub");
+        if (totalSub) {
+          const activeCount = usersCache.filter(u => u.status === "active").length;
+          totalSub.textContent = activeCount + " aktif menerima pengingat";
+        }
+
+        tbody.innerHTML = "";
         if (!filtered.length) {
-          const tr = document.createElement('tr');
-          const td = document.createElement('td');
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
           td.colSpan = 5;
-          td.className = 'muted';
-          td.textContent = usersCache.length ? 'Tidak ada yang cocok dengan filter.' : 'Belum ada ibu terdaftar.';
+          td.className = "muted";
+          td.textContent = usersCache.length ? "Tidak ada yang cocok dengan filter." : "Belum ada ibu terdaftar.";
           tr.appendChild(td);
           tbody.appendChild(tr);
           return;
         }
         for (const user of filtered) {
           const p = progress(user);
-          const tr = document.createElement('tr');
-          const nameCell = document.createElement('td');
-          nameCell.className = 'name-cell';
-          const link = document.createElement('a');
-          link.className = 'row-link';
-          link.href = '/admin/users/' + encodeURIComponent(user.wa_id);
-          link.textContent = fmt(user.name);
+          const tr = document.createElement("tr");
+          const nameCell = document.createElement("td");
+          nameCell.className = "name-cell";
+          const link = document.createElement("a");
+          link.className = "row-link";
+          link.href = "/admin/users/" + encodeURIComponent(user.wa_id);
+          const wrapDiv = document.createElement("div");
+          wrapDiv.style.padding = "4px 0";
+          const nameSpan = document.createElement("div");
+          nameSpan.textContent = fmt(user.name);
+          nameSpan.style.fontWeight = "600";
+          const cleanPhone = String(user.wa_id || "").replace(/@c\.us$/, "");
+          const phoneFormatted = cleanPhone.startsWith("62") ? "0" + cleanPhone.slice(2) : cleanPhone;
+          const phoneSpan = document.createElement("div");
+          phoneSpan.className = "muted num";
+          phoneSpan.textContent = phoneFormatted;
+          wrapDiv.appendChild(nameSpan);
+          wrapDiv.appendChild(phoneSpan);
+          link.appendChild(wrapDiv);
           nameCell.appendChild(link);
           tr.appendChild(nameCell);
-          const statusCell = document.createElement('td');
-          statusCell.appendChild(badge(STATUS_TONE[user.status] || 'badge', STATUS_LABEL[user.status] || fmt(user.status)));
+          const statusCell = document.createElement("td");
+          statusCell.appendChild(badge(STATUS_TONE[user.status] || "badge", STATUS_LABEL[user.status] || fmt(user.status)));
           tr.appendChild(statusCell);
-          const timeCell = document.createElement('td');
-          timeCell.className = 'num';
-          timeCell.textContent = fmt(user.reminder_time);
+          const timeCell = document.createElement("td");
+          timeCell.className = "num";
+          timeCell.textContent = user.reminder_time ? user.reminder_time + " WIB" : "-";
           tr.appendChild(timeCell);
-          const answerCell = document.createElement('td');
-          answerCell.textContent = user.last_response ? user.last_response + ' ' + fmt(user.last_response_date) : 'belum ada';
-          tr.appendChild(answerCell);
-          const progressCell = document.createElement('td');
-          if (!p.started) {
-            progressCell.className = 'muted';
-            progressCell.textContent = 'belum mulai';
+          const answerCell = document.createElement("td");
+          if (!user.last_response) {
+            answerCell.className = "muted";
+            answerCell.textContent = "belum ada";
           } else {
-            progressCell.className = 'num';
-            progressCell.textContent = p.fe + '% dari ' + Number(user.total_logs || 0) + ' pengingat';
+            const isSudah = /sudah/i.test(user.last_response);
+            const isBelum = /belum/i.test(user.last_response);
+            const tone = isSudah ? "badge badge-ok" : (isBelum ? "badge badge-bad" : "badge");
+            answerCell.appendChild(badge(tone, user.last_response));
+            if (user.last_response_date) {
+              const dtSpan = document.createElement("span");
+              dtSpan.className = "muted num";
+              dtSpan.style.marginLeft = "6px";
+              dtSpan.textContent = fmt(user.last_response_date);
+              answerCell.appendChild(dtSpan);
+            }
+          }
+          tr.appendChild(answerCell);
+          const progressCell = document.createElement("td");
+          if (!p.started) {
+            progressCell.className = "muted";
+            progressCell.textContent = "belum mulai";
+          } else {
+            progressCell.className = "num";
+            progressCell.textContent = p.fe + "% dari " + Number(user.total_logs || 0) + " pengingat";
           }
           tr.appendChild(progressCell);
           tbody.appendChild(tr);
         }
       }
-      function setAccessStatus(text, tone) {
-        const node = document.getElementById('access-status');
-        node.className = tone === 'ok' ? 'note ok' : 'note';
-        node.textContent = text || '';
-        node.hidden = !text;
-      }
-      function renderAccess() {
-        const data = accessCache || { panel: [], env: [] };
-        const tbody = document.getElementById('access-body');
-        const rows = (data.panel || [])
-          .map((entry) => ({ wa_id: entry.wa_id, source: 'panel', note: entry.note, created_at: entry.created_at, from_env: entry.from_env }))
-          .concat((data.env || []).map((waId) => ({ wa_id: waId, source: 'env', note: '', created_at: '' })));
-        tbody.innerHTML = '';
-        tbody.setAttribute('aria-busy', 'false');
-        setText('access-count', rows.length + ' nomor dilayani. Nomor disimpan berawalan 62, dan alamat perangkat (@lid) dicocokkan otomatis sehingga tidak perlu didaftarkan.');
-        if (!rows.length) {
-          const tr = document.createElement('tr');
-          const td = document.createElement('td');
-          td.colSpan = 5;
-          td.className = 'muted';
-          td.textContent = 'Belum ada nomor tambahan dari panel.';
-          tr.appendChild(td);
-          tbody.appendChild(tr);
-          return;
-        }
-        for (const row of rows) {
-          const tr = document.createElement('tr');
-          const numberCell = document.createElement('td');
-          numberCell.className = 'num';
-          numberCell.textContent = row.wa_id;
-          tr.appendChild(numberCell);
-          const sourceCell = document.createElement('td');
-          const label = row.source === 'panel' ? (row.from_env ? 'panel + berkas .env' : 'panel') : 'berkas .env';
-          sourceCell.appendChild(badge(row.source === 'panel' ? 'badge badge-accent' : 'badge', label));
-          tr.appendChild(sourceCell);
-          const noteCell = document.createElement('td');
-          noteCell.textContent = row.note ? row.note : '-';
-          tr.appendChild(noteCell);
-          const dateCell = document.createElement('td');
-          dateCell.className = 'num';
-          dateCell.textContent = row.created_at ? fmtDt(row.created_at) : '-';
-          tr.appendChild(dateCell);
-          const actionCell = document.createElement('td');
-          if (row.source === 'panel' && !row.from_env) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn';
-            btn.textContent = 'Cabut';
-            btn.setAttribute('aria-label', 'Cabut akses untuk ' + row.wa_id);
-            btn.addEventListener('click', () => confirmRemoveAccess(row.wa_id, btn));
-            actionCell.appendChild(btn);
-          } else {
-            actionCell.className = 'muted';
-            actionCell.textContent = 'di berkas .env';
-          }
-          tr.appendChild(actionCell);
-          tbody.appendChild(tr);
-        }
-      }
-      // fetchJson biasa membuang isi pesan galat, sedangkan di sini pesan server
-      // justru bagian penting (contoh format nomor), jadi badan respons dibaca sendiri.
-      async function postAccess(payload) {
-        const res = await fetch('/admin/api/allowlist/actions', {
-          method: 'POST',
-          headers: csrfHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(payload),
-        });
-        let data = null;
-        try { data = await res.json(); } catch (err) { data = null; }
-        if (res.status === 401) { window.location.href = '/admin/login?expired=1'; throw new Error('Sesi berakhir'); }
-        if (!res.ok || !data || !data.ok) {
-          throw new Error((data && data.error) || ('kode ' + res.status));
-        }
-        accessCache = { panel: data.panel || [], env: data.env || [] };
-        renderAccess();
-        return data;
-      }
-      // Mencabut akses langsung memutus layanan ke user, jadi klik pertama hanya mengubah label.
-      function confirmRemoveAccess(waId, button) {
-        if (button.dataset.armed !== '1') {
-          button.dataset.armed = '1';
-          button.textContent = 'Yakin cabut?';
-          clearTimeout(button.armTimer);
-          button.armTimer = setTimeout(() => {
-            button.dataset.armed = '0';
-            button.textContent = 'Cabut';
-          }, 5000);
-          return;
-        }
-        button.disabled = true;
-        postAccess({ action: 'remove', wa_id: waId })
-          .then((res) => {
-            if (res.from_env) {
-              setAccessStatus(waId + ' dihapus dari daftar panel. Nomor ini masih ada di berkas .env, jadi aksesnya tetap berlaku.', 'ok');
-            } else if (res.revoked) {
-              setAccessStatus(waId + ' dihapus dan aksesnya dicabut. Pengingat untuk nomor ini dijeda.', 'ok');
-            } else {
-              setAccessStatus(waId + ' dihapus dari daftar panel.', 'ok');
-            }
-            showToast('Nomor dihapus');
-          })
-          .catch((err) => setAccessStatus('Gagal mencabut: ' + err.message, 'error'))
-          .finally(() => {
-            button.disabled = false;
-            button.dataset.armed = '0';
-            button.textContent = 'Cabut';
-          });
-      }
       function renderLogs() {
-        const list = document.getElementById('logs-body');
-        list.setAttribute('aria-busy', 'false');
+        const list = document.getElementById("logs-body");
+        list.setAttribute("aria-busy", "false");
         const limit = logsOpen ? 50 : 10;
-        list.innerHTML = '';
+        list.innerHTML = "";
         if (!logsCache.length) {
-          const li = document.createElement('li');
-          li.className = 'empty';
-          li.textContent = 'Belum ada catatan pengingat.';
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "Belum ada catatan pengingat.";
           list.appendChild(li);
           return;
         }
         for (const log of logsCache.slice(0, limit)) {
-          const li = document.createElement('li');
-          const left = document.createElement('div');
-          left.style.minWidth = '0';
-          const who = document.createElement('div');
-          who.textContent = fmt(log.name) + ' · ' + String(fmt(log.response)).toLowerCase();
-          const when = document.createElement('div');
-          when.className = 'when num';
-          when.textContent = fmt(log.reminder_date) + ' · dicatat ' + fmtDt(log.created_at);
+          const li = document.createElement("li");
+          const left = document.createElement("div");
+          left.style.minWidth = "0";
+          const who = document.createElement("div");
+          who.textContent = fmt(log.name) + " · " + String(fmt(log.response)).toLowerCase();
+          const when = document.createElement("div");
+          when.className = "when num";
+          when.textContent = fmt(log.reminder_date) + " · dicatat " + fmtDt(log.created_at);
           left.appendChild(who);
           left.appendChild(when);
-          const right = document.createElement('div');
-          right.className = 'when num';
-          right.textContent = 'sudah ' + fmt(log.response_sudah_count) + ' · belum ' + fmt(log.response_belum_count);
+          const right = document.createElement("div");
+          right.className = "when num";
+          right.textContent = "sudah " + fmt(log.response_sudah_count) + " · belum " + fmt(log.response_belum_count);
           li.appendChild(left);
           li.appendChild(right);
           list.appendChild(li);
         }
-        const toggle = document.getElementById('logs-toggle');
+        const toggle = document.getElementById("logs-toggle");
         toggle.hidden = logsCache.length <= 10;
-        toggle.lastChild.textContent = logsOpen ? 'Tampilkan 10' : 'Tampilkan 50';
+        toggle.lastChild.textContent = logsOpen ? "Tampilkan 10" : "Tampilkan 50";
       }
       function syncUrl() {
         const params = new URLSearchParams();
-        if (phaseFilter !== 'all') params.set('phase', phaseFilter);
-        if (keyword) params.set('q', keyword);
+        if (phaseFilter !== "all") params.set("phase", phaseFilter);
+        if (keyword) params.set("q", keyword);
         const q = params.toString();
-        history.replaceState(null, '', q ? '?' + q : location.pathname);
+        history.replaceState(null, "", q ? "?" + q : location.pathname);
       }
       function readUrl() {
         const params = new URLSearchParams(location.search);
-        const asked = params.get('phase') || 'all';
-        const known = Array.from(document.querySelectorAll('.phase-filter')).map((b) => b.getAttribute('data-phase-filter'));
-        phaseFilter = known.includes(asked) ? asked : 'all';
-        keyword = (params.get('q') || '').trim().toLowerCase();
-        document.getElementById('users-search').value = keyword;
+        const asked = params.get("phase") || "all";
+        const known = Array.from(document.querySelectorAll(".phase-filter")).map((b) => b.getAttribute("data-phase-filter"));
+        phaseFilter = known.includes(asked) ? asked : "all";
+        keyword = (params.get("q") || "").trim().toLowerCase();
+        document.getElementById("users-search").value = keyword;
       }
       async function guard(noteId, task) {
         try {
           await task();
           const n = document.getElementById(noteId);
-          if (n) { n.hidden = true; n.textContent = ''; }
-          return { ok: true, error: '' };
+          if (n) { n.hidden = true; n.textContent = ""; }
+          return { ok: true, error: "" };
         } catch (err) {
           const n = document.getElementById(noteId);
-          if (n) { n.hidden = false; n.textContent = 'Bagian ini gagal dimuat: ' + err.message + '. Menampilkan hasil muat sebelumnya.'; }
+          if (n) { n.hidden = false; n.textContent = "Bagian ini gagal dimuat: " + err.message + ". Menampilkan hasil muat sebelumnya."; }
           return { ok: false, error: err.message };
         }
       }
       async function loadQr() {
-        const panel = document.getElementById('qr-panel');
+        const panel = document.getElementById("qr-panel");
         try {
-          const d = await fetchJson('/admin/api/qr');
+          const d = await fetchJson("/admin/api/qr");
           if (d.connected) { panel.hidden = true; return; }
           panel.hidden = false;
-          const img = document.getElementById('qr-img');
-          const badge = document.getElementById('qr-badge');
-          const note = document.getElementById('qr-note');
+          const img = document.getElementById("qr-img");
+          const badgeNode = document.getElementById("qr-badge");
+          const note = document.getElementById("qr-note");
           if (d.qr) {
             img.src = d.qr;
             img.hidden = false;
-            badge.className = 'badge badge-warn';
-            badge.textContent = 'menunggu dipindai';
-            note.textContent = d.qrAt ? 'Diperbarui ' + fmtDt(d.qrAt) + '. QR lama tidak berlaku.' : '';
+            badgeNode.className = "badge badge-warn";
+            badgeNode.textContent = "menunggu dipindai";
+            note.textContent = d.qrAt ? "Diperbarui " + fmtDt(d.qrAt) + ". QR lama tidak berlaku." : "";
           } else {
             img.hidden = true;
-            badge.className = 'badge';
-            badge.textContent = 'menyiapkan QR';
-            note.textContent = 'QR belum tersedia. Tunggu sebentar lalu klik Muat ulang QR.';
+            badgeNode.className = "badge";
+            badgeNode.textContent = "menyiapkan QR";
+            note.textContent = "QR belum tersedia. Tunggu sebentar lalu klik Muat ulang QR.";
           }
         } catch (err) {
           panel.hidden = false;
-          document.getElementById('qr-badge').textContent = 'gagal memuat';
-          document.getElementById('qr-note').textContent = 'Tidak dapat memuat QR: ' + err.message;
+          document.getElementById("qr-badge").textContent = "gagal memuat";
+          document.getElementById("qr-note").textContent = "Tidak dapat memuat QR: " + err.message;
         }
       }
       async function loadAll(withToast) {
-        const btn = document.getElementById('refresh-btn');
-        const banner = document.getElementById('error-banner');
+        const btn = document.getElementById("refresh-btn");
+        const banner = document.getElementById("error-banner");
         banner.hidden = true;
         btn.disabled = true;
         const results = await Promise.all([
-          guard('status-note', async () => { healthCache = await fetchJson('/admin/api/health'); renderStatus(); }),
-          guard('action-note', async () => { summaryCache = await fetchJson('/admin/api/summary'); renderToday(); renderWeek(); renderActions(); }),
-          guard('users-note', async () => { const d = await fetchJson('/admin/api/users'); usersCache = d.users || []; renderUsers(); }),
-          guard('logs-note', async () => { const d = await fetchJson('/admin/api/logs'); logsCache = d.logs || []; renderLogs(); }),
-          guard('access-status', async () => { const d = await fetchJson('/admin/api/allowlist'); accessCache = { panel: d.panel || [], env: d.env || [] }; renderAccess(); }),
-          guard('qr-note', async () => { await loadQr(); }),
+          guard("status-note", async () => { healthCache = await fetchJson("/admin/api/health"); renderStatus(); }),
+          guard("action-note", async () => { summaryCache = await fetchJson("/admin/api/summary"); renderToday(); renderWeek(); renderActions(); }),
+          guard("users-note", async () => { const d = await fetchJson("/admin/api/users"); usersCache = d.users || []; renderUsers(); }),
+          guard("logs-note", async () => { const d = await fetchJson("/admin/api/logs"); logsCache = d.logs || []; renderLogs(); }),
+          guard("qr-note", async () => { await loadQr(); }),
         ]);
         if (!results[1].ok) {
-          // Tanpa ini panel Perlu tindakan berhenti di "Memuat." tanpa sebab yang terlihat.
-          const weekBody = document.getElementById('week-body');
-          weekBody.setAttribute('aria-busy', 'false');
-          weekBody.innerHTML = '<tr><td colspan="6" class="muted">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>';
-          document.getElementById('week-badge').textContent = 'gagal';
-          const list = document.getElementById('action-list');
-          list.innerHTML = '';
-          const li = document.createElement('li');
-          li.className = 'empty';
-          li.textContent = 'Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.';
+          const weekBody = document.getElementById("week-body");
+          weekBody.setAttribute("aria-busy", "false");
+          weekBody.innerHTML = "<tr><td colspan=\"6\" class=\"muted\">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>";
+          document.getElementById("week-badge").textContent = "gagal";
+          const list = document.getElementById("action-list");
+          list.innerHTML = "";
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.";
           list.appendChild(li);
-          setText('action-count', 'gagal');
+          setText("action-count", "gagal");
         }
         const failed = results.filter((r) => !r.ok);
         if (failed.length) {
-          document.getElementById('error-text').textContent = 'Sebagian data gagal dimuat (' + failed.map((r) => r.error).join(', ') + '). Bagian yang gagal ditandai.';
+          document.getElementById("error-text").textContent = "Sebagian data gagal dimuat (" + failed.map((r) => r.error).join(", ") + "). Bagian yang gagal ditandai.";
           banner.hidden = false;
-          setText('last-updated', 'gagal ' + new Date().toLocaleTimeString('id-ID'));
+          setText("last-updated", "gagal " + new Date().toLocaleTimeString("id-ID"));
         } else {
-          setText('last-updated', new Date().toLocaleTimeString('id-ID'));
-          if (withToast) showToast('Data diperbarui');
+          setText("last-updated", new Date().toLocaleTimeString("id-ID"));
+          if (withToast) showToast("Data diperbarui");
         }
         btn.disabled = false;
       }
-      document.getElementById('access-form').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const button = document.getElementById('access-submit');
-        const numberInput = document.getElementById('access-number');
-        const noteInput = document.getElementById('access-note');
-        button.disabled = true;
-        try {
-          const res = await postAccess({ action: 'add', wa_id: numberInput.value, note: noteInput.value });
-          form.reset();
-          numberInput.focus();
-          setAccessStatus(
-            res.already
-              ? res.wa_id + ' sudah ada di daftar, tidak ada perubahan.'
-              : res.wa_id + ' diizinkan. Minta dia kirim pesan start ke bot supaya pendataannya jalan.',
-            'ok',
-          );
-          showToast('Nomor diizinkan');
-        } catch (err) {
-          setAccessStatus('Gagal menambah: ' + err.message, 'error');
-        } finally {
-          button.disabled = false;
-        }
-      });
-      // <details> tidak menutup sendiri saat fokus pindah, jadi ditutup pada Escape
-      // dan klik di luar seperti menu pada umumnya.
-      const exportPop = document.querySelector('details.pop');
+      const exportPop = document.querySelector("details.pop");
       if (exportPop) {
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && exportPop.open) exportPop.open = false;
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && exportPop.open) exportPop.open = false;
         });
-        document.addEventListener('click', (event) => {
+        document.addEventListener("click", (event) => {
           if (exportPop.open && !exportPop.contains(event.target)) exportPop.open = false;
         });
       }
-      document.getElementById('refresh-btn').addEventListener('click', () => loadAll(true));
-      document.getElementById('qr-refresh').addEventListener('click', () => loadQr());
-      document.getElementById('error-retry').addEventListener('click', () => loadAll(true));
-      document.getElementById('logs-toggle').addEventListener('click', () => { logsOpen = !logsOpen; renderLogs(); });
-      for (const btn of document.querySelectorAll('.phase-filter')) {
-        btn.addEventListener('click', () => { phaseFilter = btn.getAttribute('data-phase-filter') || 'all'; syncUrl(); renderUsers(); });
+      document.getElementById("refresh-btn").addEventListener("click", () => loadAll(true));
+      document.getElementById("qr-refresh").addEventListener("click", () => loadQr());
+      document.getElementById("error-retry").addEventListener("click", () => loadAll(true));
+      document.getElementById("logs-toggle").addEventListener("click", () => { logsOpen = !logsOpen; renderLogs(); });
+      for (const btn of document.querySelectorAll(".phase-filter")) {
+        btn.addEventListener("click", () => { phaseFilter = btn.getAttribute("data-phase-filter") || "all"; syncUrl(); renderUsers(); });
       }
-      document.getElementById('users-search').addEventListener('input', (event) => {
-        keyword = String(event.target.value || '').trim().toLowerCase();
+      document.getElementById("users-search").addEventListener("input", (event) => {
+        keyword = String(event.target.value || "").trim().toLowerCase();
         syncUrl();
         renderUsers();
       });

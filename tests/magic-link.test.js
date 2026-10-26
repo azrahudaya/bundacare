@@ -145,7 +145,7 @@ async function run() {
   await test("sesi dari magic link membuka dashboard", async () => {
     const res = await request("GET", "/admin", { headers: { Cookie: sessionCookie } });
     assert.strictEqual(res.status, 200);
-    assert.ok(res.body.includes("Akses nomor"), "dashboard dirender");
+    assert.ok(res.body.includes("Daftar ibu"), "dashboard dirender");
   });
 
   await test("endpoint QR tersedia untuk admin dan tertutup tanpa sesi", async () => {
