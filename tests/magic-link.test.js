@@ -129,15 +129,31 @@ async function run() {
 
   let sessionCookie = "";
   let rawToken = "";
-  await test("token magic link menukar menjadi sesi dan sekali pakai", async () => {
+  await test("token magic link: GET menampilkan konfirmasi, POST menukar sesi, dan sekali pakai", async () => {
     const created = await magic.createMagicToken(db, ADMIN_EMAIL);
     rawToken = created.token;
-    const first = await request("GET", "/admin/auth?token=" + encodeURIComponent(rawToken));
+    // GET (mis. prefetch Gmail) hanya memeriksa token dan menampilkan tombol, tidak menghabiskannya.
+    const peek = await request("GET", "/admin/auth?token=" + encodeURIComponent(rawToken));
+    assert.strictEqual(peek.status, 200);
+    assert.ok(peek.body.includes("Masuk ke panel"), "halaman konfirmasi dirender");
+    assert.ok(peek.body.includes(encodeURIComponent(rawToken)), "token dibawa ke form POST");
+    // Prefetch berulang tetap tidak menghanguskan token.
+    const peekAgain = await request("GET", "/admin/auth?token=" + encodeURIComponent(rawToken));
+    assert.strictEqual(peekAgain.status, 200);
+    // POST benar-benar menukar token menjadi sesi.
+    const first = await request("POST", "/admin/auth", {
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: origin },
+      body: "token=" + encodeURIComponent(rawToken),
+    });
     assert.strictEqual(first.status, 302);
     assert.strictEqual(first.headers.location, "/admin");
     sessionCookie = String(first.headers["set-cookie"] || "").split(";")[0];
     assert.ok(/HttpOnly/i.test(String(first.headers["set-cookie"] || "")), "cookie HttpOnly");
-    const again = await request("GET", "/admin/auth?token=" + encodeURIComponent(rawToken));
+    // Token sekali pakai: pemakaian kedua ditolak.
+    const again = await request("POST", "/admin/auth", {
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: origin },
+      body: "token=" + encodeURIComponent(rawToken),
+    });
     assert.strictEqual(again.status, 302);
     assert.ok(String(again.headers.location || "").includes("error=token"), "token kedua kali ditolak");
   });

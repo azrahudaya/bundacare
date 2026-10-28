@@ -2533,6 +2533,47 @@ function renderAdminLoginPage(message, options = {}) {
 </html>`;
 }
 
+function renderAdminAuthPage(token, email, options = {}) {
+  const nonce = options && options.nonce ? String(options.nonce) : "";
+  const safeToken = escapeHtml(String(token || ""));
+  const safeEmail = escapeHtml(String(email || ""));
+  return `<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <title>Masuk - bundacare Admin</title>
+    <style nonce="${nonce}">${ADMIN_CSS}
+      main.login { min-height: 100dvh; display: grid; place-items: center; padding: 20px; }
+      .login-card { width: 100%; max-width: 360px; }
+      .login-card .panel-body { display: grid; gap: 12px; padding: 14px; }
+      .login-card h1 { font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main class="login">
+      <div class="login-card">
+        <div class="panel">
+          <div class="panel-head">
+            <h1>${icon("pulse")}bundacare Admin</h1>
+            <span class="badge">panel internal</span>
+          </div>
+          <div class="panel-body">
+            <p style="margin:0">Masuk sebagai <strong>${safeEmail}</strong>.</p>
+            <form method="post" action="/admin/auth">
+              <input type="hidden" name="token" value="${safeToken}">
+              <button type="submit" class="btn-primary" style="width:100%">${icon("link")}Masuk ke panel</button>
+            </form>
+            <p class="muted" style="margin:0">Tautan ini sekali pakai. Kalau tombol tidak berfungsi, minta tautan baru.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>`;
+}
+
 function renderAdminDashboardPage(options = {}) {
   const nonce = options && options.nonce ? String(options.nonce) : "";
   const csrf = options && options.csrf ? String(options.csrf) : "";
@@ -8589,8 +8630,21 @@ async function startAdminServer(db) {
   });
 
   // Tukar token magic link menjadi sesi. Token sekali pakai dan berumur pendek.
+  // GET hanya memeriksa token lalu menampilkan tombol masuk; konsumsi token terjadi
+  // di POST. Ini penting supaya prefetch tautan (pemindai Gmail, in-app browser)
+  // tidak menghanguskan token sebelum pengguna menekan tombol.
   app.get("/admin/auth", async (req, res) => {
     const raw = String(req.query.token || "");
+    const email = await magicAuth.peekMagicToken(db, raw);
+    if (!email) {
+      res.redirect("/admin/login?error=token");
+      return;
+    }
+    res.send(renderAdminAuthPage(raw, email, { nonce: res.locals.nonce }));
+  });
+
+  app.post("/admin/auth", async (req, res) => {
+    const raw = String(req.body && req.body.token ? req.body.token : "");
     const email = await magicAuth.consumeMagicToken(db, raw);
     if (!email) {
       res.redirect("/admin/login?error=token");
