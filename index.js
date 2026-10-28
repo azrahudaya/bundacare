@@ -2674,7 +2674,7 @@ function renderAdminDashboardPage(options = {}) {
         if (!results[1].ok) {
           const weekBody = document.getElementById("week-body");
           weekBody.setAttribute("aria-busy", "false");
-          weekBody.innerHTML = "<tr><td colspan=\"6\" class=\"muted\">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>";
+          weekBody.innerHTML = '<tr><td colspan="6" class="muted">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>';
           document.getElementById("week-badge").textContent = "gagal";
           const list = document.getElementById("action-list");
           list.innerHTML = "";

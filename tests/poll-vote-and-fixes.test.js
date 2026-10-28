@@ -32,6 +32,15 @@ function wibDay(offsetDays = 0) {
     .toISODate();
 }
 
+function run(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function onDone(err) {
+      if (err) return reject(err);
+      return resolve(this);
+    });
+  });
+}
+
 async function test(name, fn) {
   try {
     await fn();
@@ -66,7 +75,7 @@ function makeClient(sent) {
   const today = wibDay();
 
   // 1. Setup user active dengan last_poll_message_id
-  await db.run(
+  await run(db, 
     `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, created_at, updated_at)
      VALUES (?, ?, 'active', 1, '19:00', ?, ?, 1, 0, datetime('now'), datetime('now'))`,
     [PATIENT, "Siti", today, `true_${PATIENT}_poll_12345`],
@@ -127,7 +136,7 @@ function makeClient(sent) {
   await test("start saat onboarding step 5 tidak melompat ke step 9 melainkan mengulang step 5", async () => {
     const ONBOARD_USER = "62899990001@c.us";
     await mod.addPanelAllowedNumber(db, ONBOARD_USER, null, "panel", "admin");
-    await db.run(
+    await run(db, 
       `INSERT INTO users (wa_id, name, status, onboarding_step, allow_remindcare, is_allowed, created_at, updated_at)
        VALUES (?, 'Bunda Nur', 'onboarding', 5, 1, 1, datetime('now'), datetime('now'))`,
       [ONBOARD_USER],
@@ -196,12 +205,12 @@ function makeClient(sent) {
     // hilang permanen. Rekonsiliasi membaca ulang vote dari WhatsApp.
     const RECON = "62822223333@c.us";
     const RECON_LID = "111222333444@lid";
-    await db.run(
+    await run(db, 
       `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, is_blocked, created_at, updated_at)
        VALUES (?, 'Ibu Rekon', 'active', 1, '10:00', ?, ?, 1, 0, 0, datetime('now'), datetime('now'))`,
       [RECON, today, `true_${RECON}_poll_recon`],
     );
-    await db.run(
+    await run(db, 
       "INSERT OR REPLACE INTO user_aliases (alias, canonical, first_seen, last_seen) VALUES (?,?,?,?)",
       [RECON_LID, RECON, new Date().toISOString(), new Date().toISOString()],
     );
@@ -249,7 +258,7 @@ function makeClient(sent) {
   await test("handleVoteUpdate mendukung parentMsgKey berupa string", async () => {
     const STR_USER = "62899998888@c.us";
     const STR_MSG_ID = `true_${STR_USER}_poll_str_test`;
-    await db.run(
+    await run(db, 
       `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, is_blocked, created_at, updated_at)
        VALUES (?, 'Ibu String Key', 'active', 1, '10:00', ?, ?, 1, 0, 0, datetime('now'), datetime('now'))`,
       [STR_USER, today, STR_MSG_ID],

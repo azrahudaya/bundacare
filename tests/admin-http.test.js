@@ -86,6 +86,7 @@ async function run() {
   const origin = "http://127.0.0.1:" + port;
   let sessionCookie = "";
   let csrf = "";
+  let dashboardHtml = "";
 
   await test("halaman login dilayani dengan header aman", async () => {
     const res = await request("GET", "/admin/login");
@@ -149,9 +150,30 @@ async function run() {
   await test("dashboard terbuka dengan sesi dan memuat panel utama", async () => {
     const res = await request("GET", "/admin", { headers: { Cookie: sessionCookie } });
     assert.strictEqual(res.status, 200);
+    dashboardHtml = res.body;
     assert.ok(res.body.includes("Daftar ibu"), "panel daftar ibu harus dirender");
     csrf = (res.body.match(/name="csrf-token" content="([^"]+)"/) || [])[1];
     assert.ok(csrf, "token CSRF harus tersedia");
+  });
+
+  // Regresi: seluruh panel dijalankan oleh satu <script> inline. Kalau string di dalam
+  // script itu salah escape (mis. colspan="6" tanpa backslash), browser gagal mem-parse
+  // SELURUH script dan semua kartu tertahan di "memuat". Uji HTML tidak menangkap ini,
+  // jadi script-nya harus benar-benar di-parse seperti browser.
+  await test("inline script dashboard valid dan tidak menahan panel di 'memuat'", () => {
+    const vm = require("vm");
+    const html = dashboardHtml;
+    const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
+      .map((m) => m[1])
+      .filter((s) => s.trim().length > 400);
+    assert.ok(scripts.length > 0, "dashboard harus punya script inline");
+    for (const [i, script] of scripts.entries()) {
+      try {
+        new vm.Script(script, { filename: `dashboard-${i}.js` });
+      } catch (err) {
+        assert.fail(`script dashboard #${i} gagal di-parse browser: ${err.message}`);
+      }
+    }
   });
 
   await test("halaman detail user memuat tindakan operator", async () => {
