@@ -2696,34 +2696,34 @@ function renderAdminDashboardPage(options = {}) {
       <div class="stat-grid" id="today-panel">
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("clock")}Menunggu Respon</span>
+            <span class="stat-label">${icon("clock")}Menunggu respon</span>
             <span class="muted num" id="today-date"></span>
           </div>
           <div class="stat-val" id="today-waiting">-</div>
-          <div class="stat-sub">Belum membalas polling hari ini</div>
+          <div class="stat-sub">Belum menjawab polling hari ini</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("check")}Sudah Minum Obat</span>
+            <span class="stat-label">${icon("check")}Sudah minum</span>
             <span class="badge badge-ok" id="today-rate-badge">-</span>
           </div>
           <div class="stat-val" id="today-sudah">-</div>
-          <div class="stat-sub">Konfirmasi minum tablet FE</div>
+          <div class="stat-sub">Tablet FE diminum hari ini</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("alert")}Belum Minum Obat</span>
+            <span class="stat-label">${icon("alert")}Belum minum</span>
             <span class="badge badge-warn">tinjau</span>
           </div>
           <div class="stat-val" id="today-belum">-</div>
-          <div class="stat-sub">Konfirmasi belum minum obat</div>
+          <div class="stat-sub">Tablet FE belum diminum</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("users")}Total Pasien</span>
+            <span class="stat-label">${icon("users")}Total pasien</span>
             <span class="badge badge-ok">aktif</span>
           </div>
           <div class="stat-val" id="total-patients-card">-</div>
