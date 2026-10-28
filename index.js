@@ -7294,16 +7294,16 @@ async function resolveVoterUser(db, client, rawWaId) {
   if (!user && rawWaId !== canonicalWaId) {
     user = await getUser(db, rawWaId);
   }
-  if (!user && client && typeof client.getContactById === "function") {
-    try {
-      const contact = await client.getContactById(rawWaId);
-      const number = contact && contact.number ? contact.number : null;
-      if (number) {
-        const mapped = `${number}@c.us`;
-        await recordAlias(db, rawWaId, mapped);
-        user = await getUser(db, mapped);
-      }
-    } catch (_) {}
+  if (!user) {
+    // Petakan alamat perangkat (@lid) ke nomor asli lewat halaman WhatsApp.
+    // JANGAN pakai client.getContactById().number: untuk @lid nilainya digit LID
+    // (sama dengan prefix @lid), bukan nomor HP, sehingga menulis alias palsu
+    // seperti "204930287689898@c.us" dan vote tidak pernah cocok dengan user.
+    const mapped = await resolveNumberIdFromPage(client, rawWaId);
+    if (mapped) {
+      await recordAlias(db, rawWaId, mapped);
+      user = await getUser(db, mapped);
+    }
   }
   return user;
 }
@@ -7433,11 +7433,8 @@ async function reconcilePollVotes(db, client) {
         // Cocokkan voter ke user ini (vote bisa datang sebagai alamat @lid).
         const rawVoter = vote && vote.voter ? String(vote.voter) : "";
         if (rawVoter) {
-          const canonical = await getCanonicalWaId(db, rawVoter);
-          const matches =
-            canonical === user.wa_id ||
-            rawVoter === user.wa_id ||
-            rawVoter.split("@")[0] === String(user.wa_id).split("@")[0];
+          const voterUser = await resolveVoterUser(db, client, rawVoter);
+          const matches = voterUser && voterUser.wa_id === user.wa_id;
           if (!matches) continue;
         }
         // Catat tanpa membalas: vote ini sudah lewat, balasan "terima kasih" akan terasa
