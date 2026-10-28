@@ -67,8 +67,8 @@ function makeClient(sent) {
 
   // 1. Setup user active dengan last_poll_message_id
   await db.run(
-    `INSERT INTO users (wa_id, name, hpht, hpht_iso, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, created_at, updated_at)
-     VALUES (?, ?, '10-01-2026', '2026-01-10', 'active', 1, '19:00', ?, ?, 1, 0, datetime('now'), datetime('now'))`,
+    `INSERT INTO users (wa_id, name, status, allow_remindcare, reminder_time, last_reminder_date, last_poll_message_id, is_allowed, is_admin, created_at, updated_at)
+     VALUES (?, ?, 'active', 1, '19:00', ?, ?, 1, 0, datetime('now'), datetime('now'))`,
     [PATIENT, "Siti", today, `true_${PATIENT}_poll_12345`],
   );
 
@@ -128,8 +128,8 @@ function makeClient(sent) {
     const ONBOARD_USER = "62899990001@c.us";
     await mod.addPanelAllowedNumber(db, ONBOARD_USER, null, "panel", "admin");
     await db.run(
-      `INSERT INTO users (wa_id, name, hpht, hpht_iso, status, onboarding_step, allow_remindcare, is_allowed, created_at, updated_at)
-       VALUES (?, 'Bunda Nur', '10-01-2026', '2026-01-10', 'onboarding', 5, 1, 1, datetime('now'), datetime('now'))`,
+      `INSERT INTO users (wa_id, name, status, onboarding_step, allow_remindcare, is_allowed, created_at, updated_at)
+       VALUES (?, 'Bunda Nur', 'onboarding', 5, 1, 1, datetime('now'), datetime('now'))`,
       [ONBOARD_USER],
     );
 
@@ -146,20 +146,6 @@ function makeClient(sent) {
     });
     assert.strictEqual(Number(user.onboarding_step), 5, "Step harus tetap 5");
     assert.ok(sent.some((m) => /Pertanyaan 5 dari \d+/.test(m.body)), "Harus menanyakan pertanyaan 5");
-  });
-
-  await test("normalizeBirthWeightGram mengonversi kg dan memvalidasi rentang klinis", () => {
-    assert.strictEqual(mod.normalizeBirthWeightGram("3200 gram"), "3200 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3200"), "3200 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3.2 kg"), "3200 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3,2 kg"), "3200 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3.2"), "3200 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3 kg"), "3000 gram");
-    assert.strictEqual(mod.normalizeBirthWeightGram("3"), "3000 gram");
-    // Di luar batas wajar bayi lahir (500g - 6000g)
-    assert.strictEqual(mod.normalizeBirthWeightGram("32"), null);
-    assert.strictEqual(mod.normalizeBirthWeightGram("300 gram"), null);
-    assert.strictEqual(mod.normalizeBirthWeightGram("8000 gram"), null);
   });
 
   await test("perintah ganti jam dan lanjut bekerja konsisten dengan start dan ubah jam", async () => {

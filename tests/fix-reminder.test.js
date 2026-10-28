@@ -384,11 +384,8 @@ async function run() {
   });
 
   await test("tanda baca akhir tidak menggagalkan jawaban ya/sudah", () => {
-    assert.strictEqual(mod.parseDeliveryValidationAnswer("Ya."), "Sudah");
-    assert.strictEqual(mod.parseDeliveryValidationAnswer("Sudah!"), "Sudah");
-    assert.strictEqual(mod.parseDeliveryValidationAnswer("belum."), "Belum");
-    assert.strictEqual(mod.parseDeliveryValidationAnswer("Ya"), "Sudah");
-    assert.strictEqual(mod.parseDeliveryValidationAnswer("mungkin"), null);
+    assert.strictEqual(mod.parseYesNo("Ya."), true);
+    assert.strictEqual(mod.parseYesNo("sudah"), true);
     assert.strictEqual(mod.stripTrailingPunctuation("  Belum ya??  "), "belum ya");
   });
 
@@ -493,11 +490,6 @@ async function run() {
     assert.strictEqual(mod.normalizeTimeInput("7.30"), "07:30");
     assert.strictEqual(mod.normalizeTimeInput("25:99"), null);
     assert.strictEqual(mod.normalizeTimeInput("17:00"), "17:00");
-  });
-
-  await test("pertanyaan kunjungan nifas menyebut cara koreksi", () => {
-    const question = mod.buildPostpartumVisitQuestion({ label: "KF 1", code: "KF1" });
-    assert.ok(question.includes("koreksi kf1 sudah"), question);
   });
 
   await test("ekspor CSV menetralkan sel yang bisa jadi formula", () => {

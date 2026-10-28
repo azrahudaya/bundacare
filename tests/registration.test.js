@@ -34,7 +34,7 @@ async function run() {
   const sent = [];
   const client = { sendMessage: async (_to, text) => { sent.push(text); return { id: { _serialized: `mock-${sent.length}` } }; } };
   const phone = "6285700000001";
-  const form = { name: "Ibu Uji", phone: "085700000001", hpht: "2026-08-01", reminderTime: "08:30", consent: true };
+  const form = { name: "Ibu Uji", phone: "085700000001", reminderTime: "08:30", consent: true };
   let requestId;
   let token;
   let cookie;

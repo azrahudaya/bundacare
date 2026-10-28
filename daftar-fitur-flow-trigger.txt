@@ -1,4 +1,4 @@
-DAFTAR FITUR REMINDCARE
+DAFTAR FITUR BUNDACARE
 (Sumber: implementasi di index.js)
 
 Format:
@@ -27,28 +27,27 @@ Format:
 - Flow:
   - Field yes/no divalidasi (ya/tidak).
   - Jam divalidasi ke format HH:MM.
-  - HPHT divalidasi ke format tanggal valid.
-  - Jika user menolak diingatkan (allow_bundacare = tidak), onboarding ditutup dan reminder tidak diaktifkan.
+  - Jika user menolak diingatkan (allow_remindcare = tidak), onboarding ditutup dan reminder tidak diaktifkan.
   - Jika selesai, user jadi active dan jam reminder tersimpan.
 
 4) Command Menu dan Info Dasar
 - Trigger:
-  - User kirim `help`/`menu`, `about`, `website`, `cek persalinan`.
+  - User kirim `help`/`menu`, `about`, `website`.
 - Flow:
-  - Bot kirim daftar command, info aplikasi, link website, atau memulai konfirmasi status persalinan manual.
+  - Bot kirim daftar command, info aplikasi, atau link website.
 
 5) Aktivasi Reminder (`start`/`mulai`)
 - Trigger:
   - User kirim `start` atau `mulai`.
 - Flow:
-  - Jika jam belum ada: user diarahkan ke step input jam (onboarding step 9).
-  - Jika jam sudah ada: set active + allow_bundacare=1, lalu konfirmasi aktif.
+  - Jika jam belum ada: user diarahkan ke step input jam (step terakhir onboarding).
+  - Jika jam sudah ada: set active + allow_remindcare=1, lalu konfirmasi aktif.
 
 6) Pause Reminder (`stop`/`berhenti`)
 - Trigger:
   - User kirim `stop` atau `berhenti`.
 - Flow:
-  - allow_bundacare=0, status=paused.
+  - allow_remindcare=0, status=paused.
   - Bot kirim konfirmasi jeda.
 
 7) Ubah Jam Reminder (`ubah jam`, `set jam`, `jam`)
@@ -56,7 +55,7 @@ Format:
   - User kirim pola ubah jam.
 - Flow:
   - Jam diparse/validasi.
-  - Jika valid: reminder_time diupdate, status active, allow_bundacare=1.
+  - Jika valid: reminder_time diupdate, status active, allow_remindcare=1.
   - Jika tidak valid: bot kirim contoh format.
 
 8) Hapus Akun dengan Konfirmasi 2x (`delete`/`hapus`)
@@ -64,19 +63,32 @@ Format:
   - User kirim `delete`/`hapus`.
 - Flow:
   - Kiriman pertama: bot minta konfirmasi (kirim lagi).
-  - Kiriman kedua <= 5 menit: data user + reminder logs + postpartum logs dihapus.
+  - Kiriman kedua <= 5 menit: data user + reminder logs dihapus.
 
-9) Reminder Harian FE (Teks + Poll)
+9) Info Ringkas User (`info`)
+- Trigger:
+  - User kirim `info`/`informasi`.
+- Flow:
+  - Bot kirim status akun, status pengingat tablet FE, catatan harian (obat rutin, konsumsi teh).
+
+10) Edit Data (`edit data`)
+- Trigger:
+  - User kirim `edit data` (dua kali dalam 5 menit untuk konfirmasi).
+- Flow:
+  - Profil dikosongkan, status kembali onboarding, mulai dari pertanyaan pertama.
+
+11) Reminder Harian FE (Teks + Poll)
 - Trigger:
   - Loop background tiap 30 detik, untuk user active dengan reminder_time.
-  - Waktu sekarang >= reminder_time dan poll hari ini belum dikirim.
+  - Waktu sekarang >= reminder_time dan pengingat hari ini belum dikirim.
 - Flow:
-  - Kirim teks reminder harian (1x per hari), kecuali saat fase validasi persalinan (minggu >= 39) teks ini dilewati.
+  - Kirim teks reminder harian (1x per hari).
   - Kirim poll "Sudah minum tablet FE hari ini?".
   - Simpan last_reminder_date dan last_poll_message_id.
   - Buat/ensure log reminder harian.
+  - Frekuensi poll diturunkan setelah hari program ke-`poll_days_limit` (default 14): hari ganjil hanya teks.
 
-10) Pencatatan Respon Poll FE (Text/Vote)
+12) Pencatatan Respon Poll FE (Text/Vote)
 - Trigger:
   - User jawab text yang mengandung "sudah/udah/belum", atau vote_update dari poll FE aktif.
 - Flow:
@@ -84,86 +96,23 @@ Format:
   - Counter `response_sudah_count` / `response_belum_count` diupdate.
   - Dibatasi `POLL_MAX_RESPONSES_PER_DAY` (default 2) per jenis jawaban.
   - Bot kirim balasan sesuai jawaban.
+  - Vote yang terlewat (bot restart) dipulihkan lewat rekonsiliasi tiap 5 menit.
 
-11) Edukasi Fase Persalinan Minggu 37-41
-- Trigger:
-  - Saat tick reminder, jika minggu kehamilan 37-41 dan belum terkirim hari ini.
-- Flow:
-  - Bot kirim pesan edukasi fase kehamilan.
-  - Di minggu 40, pesan menyertakan tanggal HPL.
-
-12) Poll Validasi Persalinan (Mulai Minggu 39)
-- Trigger:
-  - Saat tick reminder, usia kehamilan >= DELIVERY_VALIDATION_START_WEEK (default 39), belum konfirmasi melahirkan.
-  - Waktu sekarang masuk slot 2 jam sebelum `reminder_time` user.
-- Flow:
-  - Bot kirim poll "Apakah Ibu sudah melahirkan?" (tanpa intro sapaan harian).
-  - Simpan `last_delivery_poll_message_id` dan stage polling.
-
-13) Penanganan Jawaban Validasi Persalinan
-- Trigger:
-  - Vote/text validasi persalinan masuk untuk stage yang pending.
-- Flow:
-  - Jika jawaban "Belum": kirim pesan dukungan + arahan.
-  - Jika jawaban "Sudah": mulai flow pendataan persalinan bertahap.
-  - Stage `manual` bisa dipicu dari command `cek persalinan` tanpa menunggu reminder otomatis.
-
-14) Pendataan Persalinan Bertahap (8 Pertanyaan)
-- Trigger:
-  - `delivery_data_step > 0` dan user mengirim jawaban.
-- Flow:
-  - Step by step: tanggal, jam, tempat, penolong, penyulit, gender bayi, BB lahir, keluhan ibu.
-  - Tanggal/jam divalidasi agar tidak di masa depan dan tidak sebelum HPHT.
-  - Saat selesai: tandai delivery_data_completed_at, reset step, lalu lanjut ke monitoring nifas/neonatal.
-
-15) Edukasi Masa Nifas/Neonatal
-- Trigger:
-  - Data persalinan selesai, postpartum monitoring aktif, edukasi belum pernah terkirim.
-- Flow:
-  - Bot kirim edukasi masa nifas/neonatal 1x.
-  - Simpan timestamp `postpartum_education_sent_at`.
-
-16) Reminder Kunjungan Postpartum (KF/KN)
-- Trigger:
-  - Saat tick reminder, postpartum monitoring aktif.
-  - Waktu due kunjungan tercapai (KF/KN 1, KF/KN 2, KF/KN 3, dan KF 4).
-  - Waktu sekarang masuk slot 2 jam sebelum `reminder_time` user.
-- Flow:
-  - Ensure log kunjungan dibuat.
-  - Kirim teks reminder (isi fokus kunjungan ibu + bayi) + poll konfirmasi kunjungan.
-  - Pengiriman dibuat bertahap (maksimal 1 kunjungan per siklus loop) agar chat tidak menumpuk.
-  - Simpan poll_message_id per kunjungan untuk tracking jawaban.
-
-17) Pencatatan Respon Kunjungan Postpartum
-- Trigger:
-  - Vote dari poll kunjungan (cocok poll_message_id), atau text sudah/belum saat ada kunjungan pending.
-- Flow:
-  - Simpan respon + counter per kunjungan.
-  - Terapkan limit respon harian yang sama.
-  - Bot kirim respon follow-up sesuai jawaban.
-
-18) Auto Complete Program Kehamilan
-- Trigger:
-  - Saat tick reminder: masa kehamilan lewat batas (`PREGNANCY_WEEKS_LIMIT`, default 42), delivery sudah terkonfirmasi, tidak ada monitoring postpartum aktif, tidak sedang input data persalinan.
-- Flow:
-  - Status user jadi completed, allow_bundacare=0.
-  - Bot kirim notifikasi selesai masa reminder kehamilan.
-
-19) Rate Limiting Anti-Spam
+13) Rate Limiting Anti-Spam
 - Trigger:
   - Pesan/vote user melebihi batas per menit.
 - Flow:
   - User masuk cooldown sementara.
   - Bot kirim warning periodik (tidak setiap pesan) saat diblok rate limit.
 
-20) Allowlist dan Blocklist Enforcement
+14) Allowlist dan Blocklist Enforcement
 - Trigger:
   - ENFORCE_ALLOWLIST aktif, user tidak allowed/admin; atau user is_blocked=1.
 - Flow:
   - User non-allowed ditolak dengan pesan "nomor belum diizinkan".
   - User blocked diabaikan.
 
-21) Command Admin via WhatsApp
+15) Command Admin via WhatsApp
 - Trigger:
   - Pesan diawali `admin ...` dari user dengan `is_admin=1`.
 - Flow:
@@ -174,15 +123,15 @@ Format:
   - `admin unblock <wa_id>`: buka blokir nomor.
   - `admin purge logs <hari>`: hapus log lama.
 
-22) Admin Web Dashboard
+16) Admin Web Dashboard
 - Trigger:
   - `ADMIN_WEB_ENABLED` aktif, server berjalan di `/admin`.
 - Flow:
-  - Login via `/admin/login` (cookie session `rc_admin`).
+  - Login via `/admin/login` (magic link email atau password cadangan, cookie session `rc_admin`).
   - Dashboard menampilkan summary, daftar user, log terbaru.
-  - Klik user membuka detail (profil, data persalinan, history postpartum, history reminder).
+  - Klik user membuka detail (profil, riwayat reminder).
 
-23) Admin API (Protected)
+17) Admin API (Protected)
 - Trigger:
   - Request ke endpoint `/admin/api/*` dengan sesi valid.
 - Flow:
@@ -193,23 +142,22 @@ Format:
     - `/admin/api/logs`
   - Semua endpoint memerlukan autentikasi admin.
 
-24) Export CSV
+18) Export CSV
 - Trigger:
   - Akses endpoint export dari dashboard/admin API.
 - Flow:
   - Export users: `/admin/api/export/users.csv`
   - Export reminder logs: `/admin/api/export/reminder_logs.csv`
-  - Export postpartum logs: `/admin/api/export/postpartum_logs.csv`
   - Export user detail gabungan: `/admin/api/users/:waId/export.csv`
 
-25) Retry + Exponential Backoff untuk Pengiriman Poll
+19) Retry + Exponential Backoff untuk Pengiriman Poll
 - Trigger:
-  - Gagal kirim poll FE / validasi persalinan / postpartum.
+  - Gagal kirim poll FE.
 - Flow:
   - Simpan `last_attempt_at` dan naikkan `fail_count`.
   - Retry ditahan sesuai backoff eksponensial sampai batas maksimum delay.
 
-26) Auto Cleanup Log Harian
+20) Auto Cleanup Log Harian
 - Trigger:
   - Tick loop pertama di hari baru.
 - Flow:

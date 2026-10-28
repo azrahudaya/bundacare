@@ -7,13 +7,13 @@
 ![Luxon](https://img.shields.io/badge/Luxon-3.7-FF8033?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
-Automated maternal health WhatsApp bot that manages daily iron supplement (tablet tambah darah / FE) reminders, tracks patient adherence, validates delivery timelines, and schedules postpartum care visits. Built with an integrated web dashboard for healthcare providers and midwives.
+Automated WhatsApp bot for daily iron supplement (tablet tambah darah / FE) reminders. Tracks patient adherence through daily polls and natural-language replies, with an integrated web dashboard for healthcare providers and midwives.
 
 ## Architecture
 
 ```text
 +-------------------------------------------------------------+
-| Patient (Expectant / Postpartum Mother)                     |
+| Patient (Expectant Mother)                                  |
 |   - Daily Iron Tablet (FE) Intake Check via WhatsApp Poll   |
 |   - Natural Language Responses (Ya/Sudah/Belum)             |
 +------------------------------|------------------------------+

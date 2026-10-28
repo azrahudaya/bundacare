@@ -158,55 +158,6 @@ async function run() {
     assert.strictEqual(normal.stats().config.windowLabel, "06:00\u201321:30");
   });
 
-  await test("jendela pra-pengingat melewati tengah malam dengan benar", () => {
-    // Bug yang dicegah: pengingat 01:00 punya jendela pra 23:00-01:00. Versi lama
-    // memotongnya jadi 00:00-01:00 karena memakai `now.set({hour})` (selalu hari yang
-    // sama), sehingga pengingat kunjungan nifas/validasi persalinan tidak terkirim
-    // untuk jam pengingat dini hari. Dulu tersembunyi karena 00:00-02:00 belum boleh.
-    const { DateTime } = require("luxon");
-    const at = (h, m) => DateTime.fromISO("2026-10-15T00:00:00", { zone: "Asia/Jakarta" }).set({ hour: h, minute: m });
-    const pre = mod.shouldSendBeforeReminder;
-
-    // Pengingat 01:00 -> pra 23:00-01:00.
-    assert.strictEqual(pre("01:00", at(23, 0), 2), true);
-    assert.strictEqual(pre("01:00", at(23, 59), 2), true);
-    assert.strictEqual(pre("01:00", at(0, 30), 2), true);
-    assert.strictEqual(pre("01:00", at(22, 30), 2), false);
-    assert.strictEqual(pre("01:00", at(1, 0), 2), false, "tepat jam pengingat bukan jendela pra");
-
-    // Pengingat 00:30 -> pra 22:30-00:30.
-    assert.strictEqual(pre("00:30", at(22, 30), 2), true);
-    assert.strictEqual(pre("00:30", at(23, 30), 2), true);
-    assert.strictEqual(pre("00:30", at(0, 29), 2), true);
-    assert.strictEqual(pre("00:30", at(21, 0), 2), false);
-
-    // Pengingat siang tetap benar (tidak melewati tengah malam).
-    assert.strictEqual(pre("17:00", at(15, 0), 2), true);
-    assert.strictEqual(pre("17:00", at(14, 59), 2), false);
-    assert.strictEqual(pre("17:00", at(16, 59), 2), true);
-    assert.strictEqual(pre("17:00", at(17, 0), 2), false);
-  });
-
-  await test("pengingat bantu tetap jalan saat jam pengingat di awal jam kerja", () => {
-    // Bug yang dicegah: jam kerja 03:00-23:59 + jam pengingat 03:00 -> jendela pra
-    // (01:00-03:00) seluruhnya di luar jam kerja, sehingga pengingat kunjungan nifas
-    // dan validasi persalinan tidak pernah terkirim. Assist window harus tetap terbuka
-    // saat pengingat harian sudah jatuh tempo.
-    const { DateTime } = require("luxon");
-    const at = (h, m) => DateTime.fromISO("2026-10-15T00:00:00", { zone: "Asia/Jakarta" }).set({ hour: h, minute: m });
-    const assist = mod.isReminderAssistWindow;
-
-    // Jam pengingat 03:00: pra jatuh di luar jam kerja, tapi assist harus true di 03:00.
-    assert.strictEqual(assist("03:00", at(3, 0)), true, "assist harus terbuka saat jatuh tempo");
-    assert.strictEqual(assist("03:00", at(3, 20)), true, "masih dalam batas hangus 30 menit");
-    assert.strictEqual(assist("03:00", at(0, 30)), false, "sebelum jendela pra dan belum jatuh tempo");
-
-    // Jam pengingat siang: perilaku lama tetap (pra 2 jam sebelum).
-    assert.strictEqual(assist("17:00", at(15, 30)), true, "jendela pra normal");
-    assert.strictEqual(assist("17:00", at(17, 5)), true, "sudah jatuh tempo");
-    assert.strictEqual(assist("17:00", at(14, 0)), false);
-  });
-
   console.log("semua uji jendela kirim lulus");
 }
 

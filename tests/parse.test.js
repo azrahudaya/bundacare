@@ -5,20 +5,9 @@ const { DateTime } = require('luxon');
 const {
   parseYesNo,
   normalizeTimeInput,
-  parseHpht,
   shouldSendNow,
-  getHplDate,
-  getDeliveryValidationStageDue,
-  buildLaborPhaseMessage,
-  parseDeliveryValidationAnswer,
-  getDeliveryDateTime,
-  getPostpartumDueAt,
-  buildPostpartumSnapshot,
   getRetryDelayMs,
   canAttemptByBackoff,
-  validateDeliveryDateIso,
-  validateDeliveryDateTime,
-    isDeliveryCheckCommand,
 } = require('../index');
 
 function test(name, fn) {
@@ -46,107 +35,12 @@ test('normalizeTimeInput handles common inputs', () => {
   assert.strictEqual(normalizeTimeInput('2460'), null);
 });
 
-test('parseHpht accepts ymd and dmy', () => {
-  assert.strictEqual(parseHpht('2024-01-31').iso, '2024-01-31');
-  assert.strictEqual(parseHpht('31-01-2024').iso, '2024-01-31');
-  assert.strictEqual(parseHpht('2024-99-99').iso, null);
-});
-
 test('shouldSendNow returns true after scheduled time', () => {
   const now = DateTime.fromISO('2024-01-01T10:05:00', { zone: 'Asia/Jakarta' });
   assert.strictEqual(shouldSendNow('10:00', now), true);
   assert.strictEqual(shouldSendNow('10:30', now), false);
   const exact = DateTime.fromISO('2024-01-01T10:00:00', { zone: 'Asia/Jakarta' });
   assert.strictEqual(shouldSendNow('10:00', exact), true);
-});
-
-test('getHplDate calculates 40 weeks from hpht', () => {
-  const hpl = getHplDate({ hpht_iso: '2024-01-01' });
-  assert.ok(hpl);
-  const expected = DateTime.fromISO('2024-01-01', { zone: 'Asia/Jakarta' })
-    .plus({ days: 280 })
-    .toFormat('yyyy-LL-dd');
-  assert.strictEqual(hpl.toFormat('yyyy-LL-dd'), expected);
-});
-
-test('delivery validation stage starts at week 39 and repeats daily', () => {
-  const week38Now = DateTime.fromISO('2024-09-22T09:00:00', { zone: 'Asia/Jakarta' });
-  const week39Now = DateTime.fromISO('2024-09-23T09:00:00', { zone: 'Asia/Jakarta' });
-  const baseUser = { hpht_iso: '2024-01-01' };
-
-  assert.strictEqual(getDeliveryValidationStageDue(baseUser, week38Now), null);
-  assert.strictEqual(getDeliveryValidationStageDue(baseUser, week39Now), 'week39_daily');
-  assert.strictEqual(
-    getDeliveryValidationStageDue(
-      { ...baseUser, delivery_hpl_poll_sent_date: '2024-09-23' },
-      week39Now,
-    ),
-    null,
-  );
-  assert.strictEqual(
-    getDeliveryValidationStageDue(
-      { ...baseUser, delivery_hpl_response: 'Sudah' },
-      week39Now,
-    ),
-    null,
-  );
-});
-
-test('buildLaborPhaseMessage stops only after delivery is confirmed', () => {
-  const week37Now = DateTime.fromISO('2024-09-09T08:00:00', { zone: 'Asia/Jakarta' });
-  const user = { hpht_iso: '2024-01-01' };
-  assert.ok(buildLaborPhaseMessage(user, week37Now));
-  assert.ok(buildLaborPhaseMessage({ ...user, delivery_hpl_response: 'Belum' }, week37Now));
-  assert.strictEqual(buildLaborPhaseMessage({ ...user, delivery_hpl_response: 'Sudah' }, week37Now), null);
-});
-
-test('parseDeliveryValidationAnswer handles melahirkan intent and short answers', () => {
-  assert.strictEqual(parseDeliveryValidationAnswer('Sudah melahirkan'), 'Sudah');
-  assert.strictEqual(parseDeliveryValidationAnswer('Belum melahirkan'), 'Belum');
-  // Jawaban pendek sah: pertanyaannya berbunyi apakah Ibu sudah melahirkan.
-  assert.strictEqual(parseDeliveryValidationAnswer('sudah'), 'Sudah');
-  assert.strictEqual(parseDeliveryValidationAnswer('belum'), 'Belum');
-  assert.strictEqual(parseDeliveryValidationAnswer('besok'), null);
-});
-
-test('isDeliveryCheckCommand recognizes manual delivery command', () => {
-  assert.strictEqual(isDeliveryCheckCommand('cek persalinan'), true);
-  assert.strictEqual(isDeliveryCheckCommand('konfirmasi persalinan'), true);
-  assert.strictEqual(isDeliveryCheckCommand('persalinan'), true);
-  assert.strictEqual(isDeliveryCheckCommand('sudah melahirkan'), false);
-});
-
-test('getDeliveryDateTime returns valid datetime from delivery date+time', () => {
-  const deliveryAt = getDeliveryDateTime({
-    delivery_date_iso: '2026-01-10',
-    delivery_time: '14:30'
-  });
-  assert.ok(deliveryAt);
-  assert.strictEqual(deliveryAt.toFormat('yyyy-LL-dd HH:mm'), '2026-01-10 14:30');
-});
-
-test('getPostpartumDueAt calculates due time based on visit start hour', () => {
-  const deliveryAt = DateTime.fromISO('2026-01-10T14:30:00', { zone: 'Asia/Jakarta' });
-  const dueAt = getPostpartumDueAt(deliveryAt, { startHours: 6 });
-  assert.ok(dueAt);
-  assert.strictEqual(dueAt.toFormat('yyyy-LL-dd HH:mm'), '2026-01-10 20:30');
-});
-
-test('buildPostpartumSnapshot summarizes visit status', () => {
-  const snapshot = buildPostpartumSnapshot([
-    { visit_code: 'KFKN1', sent_at: '2026-01-10T20:30:00', response: 'Sudah', response_at: '2026-01-10T21:00:00' },
-    { visit_code: 'KFKN2', sent_at: '2026-01-10T20:31:00', response: 'Belum', response_at: '2026-01-10T21:05:00' },
-    { visit_code: 'KFKN3', sent_at: '2026-01-13T14:30:00', response: null, response_at: null }
-  ]);
-  assert.strictEqual(snapshot.postpartum_total, 3);
-  assert.strictEqual(snapshot.postpartum_sent, 3);
-  assert.strictEqual(snapshot.postpartum_sudah, 1);
-  assert.strictEqual(snapshot.postpartum_belum, 1);
-  assert.strictEqual(snapshot.postpartum_pending, 1);
-  assert.strictEqual(snapshot.kfkn1_confirmed_at, '2026-01-10T21:00:00');
-  assert.strictEqual(snapshot.kfkn2_confirmed_at, null);
-  assert.strictEqual(snapshot.kfkn3_confirmed_at, null);
-  assert.strictEqual(snapshot.postpartum_last_confirmed_at, '2026-01-10T21:00:00');
 });
 
 test('retry backoff delay increases and caps', () => {
@@ -164,21 +58,3 @@ test('canAttemptByBackoff blocks during delay and allows after delay', () => {
   assert.strictEqual(canAttemptByBackoff(tenMinutesAgo, 1, now), true);
   assert.strictEqual(canAttemptByBackoff(null, 2, now), true);
 });
-
-test('validateDeliveryDateIso rejects future date and before hpht', () => {
-  const now = DateTime.fromISO('2026-02-19T10:00:00', { zone: 'Asia/Jakarta' });
-  const user = { hpht_iso: '2025-06-01' };
-  assert.strictEqual(validateDeliveryDateIso('2026-02-20', user, now).valid, false);
-  assert.strictEqual(validateDeliveryDateIso('2025-05-30', user, now).valid, false);
-  assert.strictEqual(validateDeliveryDateIso('2026-02-19', user, now).valid, true);
-});
-
-test('validateDeliveryDateTime rejects future time', () => {
-  const now = DateTime.fromISO('2026-02-19T10:00:00', { zone: 'Asia/Jakarta' });
-  const user = { hpht_iso: '2025-06-01' };
-  const future = validateDeliveryDateTime(user, '2026-02-19', '23:00', now);
-  const valid = validateDeliveryDateTime(user, '2026-02-19', '09:30', now);
-  assert.strictEqual(future.valid, false);
-  assert.strictEqual(valid.valid, true);
-});
-

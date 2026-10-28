@@ -26,10 +26,8 @@ const MOCK_BASE = `<script>
       }
       if (path.indexOf('/admin/api/users/') === 0) {
         return json({
-          user: { wa_id: '628111222333@c.us', name: 'Aulia Rachmawati', status: 'active', reminder_time: '19:00', hpht_iso: '2026-03-29', total_logs: 4, total_answered: 2, total_sudah: 2, total_belum: 1 },
+          user: { wa_id: '628111222333@c.us', name: 'Aulia Rachmawati', status: 'active', reminder_time: '19:00', total_logs: 4, total_answered: 2, total_sudah: 2, total_belum: 1 },
           totals: { total_sudah: 2, total_belum: 1 },
-          delivery: [],
-          postpartum: [],
         });
       }
       if (path === '/admin/api/health') {

@@ -55,7 +55,6 @@ async function main() {
     assert.strictEqual(takeSendAttempt(waId, 'fe_poll', '2026-09-26', 2), true);
     assert.strictEqual(takeSendAttempt(waId, 'fe_poll', '2026-09-26', 2), true);
     assert.strictEqual(takeSendAttempt(waId, 'fe_poll', '2026-09-26', 2), false);
-    assert.strictEqual(takeSendAttempt(waId, 'delivery_week39_daily', '2026-09-26', 2), true);
     assert.strictEqual(takeSendAttempt(waId, 'fe_poll', '2026-09-27', 2), true);
     assert.strictEqual(takeSendAttempt('6200000002@c.us', 'fe_poll', '2026-09-26', 2), true);
   });

@@ -21,11 +21,6 @@ const magicAuth = require("./lib/magic-link");
 loadEnvFile(path.join(__dirname, ".env"));
 
 const TIMEZONE = "Asia/Jakarta";
-const PREGNANCY_WEEKS_LIMIT = Number(process.env.PREGNANCY_WEEKS_LIMIT || 42);
-const HPL_DAYS_FROM_HPHT = 280;
-const DELIVERY_VALIDATION_START_WEEK = Number(
-  process.env.DELIVERY_VALIDATION_START_WEEK || 39,
-);
 const REMINDER_POLL_QUESTION = "Sudah minum tablet FE hari ini? 💊😊";
 // Pertanyaan yang sama kata per kata, dikirim ke semua user setiap hari, adalah sinyal
 // konten yang paling mudah dikenali. Varian di bawah dipilih deterministik per user dan
@@ -40,13 +35,6 @@ const REMINDER_POLL_VARIANTS = [
   "Pengingat tablet FE hari ini ya, Bu 💊",
 ];
 const REMINDER_POLL_OPTIONS = ["Sudah ✅", "Belum ⏳"];
-const DELIVERY_VALIDATION_POLL_QUESTION = "Apakah Ibu sudah melahirkan?";
-const DELIVERY_VALIDATION_POLL_OPTIONS = [
-  "Sudah melahirkan",
-  "Belum melahirkan",
-];
-const DELIVERY_ARTICLE_URL = "https://remindcares.web.app";
-const POSTPARTUM_POLL_OPTIONS = ["Sudah ✅", "Belum ⏳"];
 const ENFORCE_ALLOWLIST = /^(1|true)$/i.test(
   process.env.ENFORCE_ALLOWLIST || "",
 );
@@ -262,85 +250,6 @@ const QUESTIONS = [
   },
 ];
 
-const DELIVERY_QUESTIONS = [
-  {
-    field: "delivery_date",
-    text: "Tanggal melahirkan kapan? (contoh: 31-01-2026)",
-    type: "date",
-    variants: [
-      "Tanggal melahirkan kapan? (contoh: 31-01-2026)",
-      "Kapan tanggal persalinannya Bu? (format tanggal-bulan-tahun, contoh: 31-01-2026)",
-      "Boleh tahu tanggal berapa si kecil lahir? (contoh: 31-01-2026)",
-    ],
-  },
-  {
-    field: "delivery_time",
-    text: "Jam melahirkan pukul berapa? (format 24 jam, contoh: 14:30)",
-    type: "time",
-    variants: [
-      "Jam melahirkan pukul berapa? (format 24 jam, contoh: 14:30)",
-      "Pukul berapa si kecil lahir Bu? (format 24 jam, contoh: 09:15)",
-      "Jam berapa persalinannya berlangsung? (format 24 jam, contoh: 14:30)",
-    ],
-  },
-  {
-    field: "delivery_place",
-    text: "Tempat melahirkan di mana? (rumah/puskesmas/klinik/rumah sakit)",
-    variants: [
-      "Tempat melahirkan di mana? (rumah/puskesmas/klinik/rumah sakit)",
-      "Di mana tempat persalinan kemarin Bu? (contoh: puskesmas, klinik, RS, atau rumah)",
-      "Persalinan berlangsung di mana? (puskesmas/klinik/rumah sakit/rumah)",
-    ],
-  },
-  {
-    field: "delivery_birth_attendant",
-    text: "Siapa penolong persalinannya? (contoh: bidan/dokter)",
-    variants: [
-      "Siapa penolong persalinannya? (contoh: bidan/dokter)",
-      "Kemarin ditolong oleh siapa saat melahirkan Bu? (contoh: bidan/dokter)",
-      "Siapa tenaga kesehatan yang menolong persalinan? (bidan/dokter)",
-    ],
-  },
-  {
-    field: "delivery_with_complication",
-    text: "Apakah persalinan dengan penyulit? (ya/tidak)",
-    type: "yesno",
-    variants: [
-      "Apakah persalinan dengan penyulit? (ya/tidak)",
-      "Apakah saat persalinan kemarin ada komplikasi atau penyulit? (ya/tidak)",
-      "Apakah persalinan kemarin disertai penyulit? (ya/tidak)",
-    ],
-  },
-  {
-    field: "baby_gender",
-    text: "Jenis kelamin bayi apa? (laki-laki/perempuan)",
-    variants: [
-      "Jenis kelamin bayi apa? (laki-laki/perempuan)",
-      "Si kecil laki-laki atau perempuan Bu? (laki-laki/perempuan)",
-      "Apa jenis kelamin adik bayi? (laki-laki/perempuan)",
-    ],
-  },
-  {
-    field: "baby_birth_weight",
-    text: "Berat badan bayi saat lahir berapa gram? (contoh: 3200 gram)",
-    type: "weight_gram",
-    variants: [
-      "Berat badan bayi saat lahir berapa gram? (contoh: 3200 gram)",
-      "Berapa berat badan lahir si kecil Bu? (contoh: 3200 gram atau 3.2 kg)",
-      "Berapa berat lahir bayi dalam gram? (contoh: 3100 gram)",
-    ],
-  },
-  {
-    field: "mother_current_complaint",
-    text: "Apakah ada keluhan Ibu saat ini? (jika tidak ada, tulis: tidak ada)",
-    variants: [
-      "Apakah ada keluhan Ibu saat ini? (jika tidak ada, tulis: tidak ada)",
-      "Bagaimana kondisi Ibu saat ini, apakah ada keluhan? (jika tidak ada, tulis: tidak ada)",
-      "Ada keluhan fisik atau rasa tidak nyaman saat ini Bu? (tulis keluhan atau 'tidak ada')",
-    ],
-  },
-];
-
 function getQuestionText(question, user = null) {
   if (!question) {
     return "";
@@ -351,66 +260,6 @@ function getQuestionText(question, user = null) {
   }
   return question.text || "";
 }
-
-const LABOR_PHASE_MESSAGES = {
-  37: "Minggu ke-37: Ini fase awal aterm. Tetap tenang, istirahat cukup, dan perhatikan kontraksi teratur.",
-  38: "Minggu ke-38: Ini fase persiapan akhir. Pastikan perlengkapan persalinan siap dan pendamping mudah dihubungi.",
-  39: "Minggu ke-39: Ini fase menunggu persalinan aktif. Pantau gerakan janin dan tanda mulas yang makin teratur.",
-  40: "Minggu ke-40: Ini fase HPL. Sebagian ibu melahirkan tepat HPL, sebagian sedikit sebelum/sesudah HPL.",
-  41: "Minggu ke-41: Ini fase pemantauan lanjutan. Tetap kontrol sesuai anjuran tenaga kesehatan dan waspadai tanda bahaya.",
-};
-
-const POSTPARTUM_VISIT_SCHEDULES = [
-  {
-    code: "KFKN1",
-    kind: "KF + KN",
-    label: "KF/KN 1",
-    startHours: 6,
-    endHours: 48,
-    windowText: "6 jam - 2 hari (48 jam) pasca persalinan",
-    focusText:
-      "Ibu: cegah perdarahan, deteksi infeksi, cek rahim & tekanan darah. Bayi: cek napas, suhu/kehangatan, tali pusat, dan menyusu dini.",
-  },
-  {
-    code: "KFKN2",
-    kind: "KF + KN",
-    label: "KF/KN 2",
-    startHours: 72,
-    endHours: 168,
-    windowText: "3 - 7 hari pasca persalinan",
-    focusText:
-      "Ibu: pastikan ASI/laktasi lancar dan tidak ada bahaya nifas. Bayi: pantau infeksi, kuning, berat badan, dan kemampuan menyusu.",
-  },
-  {
-    code: "KFKN3",
-    kind: "KF + KN",
-    label: "KF/KN 3",
-    startHours: 192,
-    endHours: 672,
-    windowText: "8 - 28 hari pasca persalinan",
-    focusText:
-      "Ibu: pemulihan fisik dan konseling KB pascasalin. Bayi: pantau pertumbuhan, kenaikan berat badan, dan dukungan ASI eksklusif.",
-  },
-  {
-    code: "KF4",
-    kind: "KF",
-    label: "KF 4",
-    startHours: 696,
-    endHours: 1008,
-    windowText: "29 - 42 hari pasca persalinan",
-    focusText:
-      "Pemeriksaan kesehatan umum akhir masa nifas dan pemantapan metode KB.",
-  },
-];
-
-const POSTPARTUM_VISIT_BY_CODE = new Map(
-  POSTPARTUM_VISIT_SCHEDULES.map((item) => [item.code, item]),
-);
-const LEGACY_POSTPARTUM_VISIT_GROUPS = [
-  { code: "KFKN1", legacyCodes: ["KF1", "KN1"] },
-  { code: "KFKN2", legacyCodes: ["KF2", "KN2"] },
-  { code: "KFKN3", legacyCodes: ["KF3", "KN3"] },
-];
 
 const REMINDER_TEMPLATES = [
   "Pengingat hari ini: tablet FE diminum ya, Bu. \u{1F48A}",
@@ -1053,25 +902,6 @@ function isEditDataCommand(text) {
   );
 }
 
-function isEditDeliveryCommand(text) {
-  if (!text) {
-    return false;
-  }
-  const normalized = text.trim().toLowerCase();
-  return /^(edit|ubah|reset)\s+(data\s+)?persalinan$/.test(normalized);
-}
-
-function isDeliveryCheckCommand(text) {
-  if (!text) {
-    return false;
-  }
-  const normalized = text.trim().toLowerCase();
-  return (
-    normalized === "persalinan" ||
-    /^(cek|konfirmasi|status)\s+persalinan$/.test(normalized)
-  );
-}
-
 function isEditMenuCommand(text) {
   if (!text) {
     return false;
@@ -1112,9 +942,7 @@ function isAlwaysCommand(text) {
       normalized,
     ) ||
     isReminderControlCommand(normalized) ||
-    isDeliveryCheckCommand(normalized) ||
     isEditDataCommand(normalized) ||
-    isEditDeliveryCommand(normalized) ||
     isEditMenuCommand(normalized)
   );
 }
@@ -1276,37 +1104,6 @@ function getProgramDay(user, now = nowWib()) {
   return Math.max(1, Math.floor(now.diff(created, "days").days) + 1);
 }
 
-function getHphtDate(user) {
-  if (!user || !user.hpht_iso) {
-    return null;
-  }
-  const parsed = DateTime.fromISO(String(user.hpht_iso), { zone: TIMEZONE });
-  if (!parsed.isValid) {
-    return null;
-  }
-  return parsed.startOf("day");
-}
-
-function getHplDate(user) {
-  const hpht = getHphtDate(user);
-  if (!hpht) {
-    return null;
-  }
-  return hpht.plus({ days: HPL_DAYS_FROM_HPHT }).startOf("day");
-}
-
-function getGestationalWeek(user, now) {
-  const hpht = getHphtDate(user);
-  if (!hpht) {
-    return null;
-  }
-  const diffDays = Math.floor(now.startOf("day").diff(hpht, "days").days);
-  if (!Number.isFinite(diffDays) || diffDays < 0) {
-    return null;
-  }
-  return Math.floor(diffDays / 7) + 1;
-}
-
 function formatDateId(value) {
   if (!value) {
     return "-";
@@ -1378,82 +1175,8 @@ function withStatusIcon(status, text) {
   return `${getStatusIcon(status)} ${text}`;
 }
 
-function buildPostpartumVisitStatusText(log, dueAt, now) {
-  if (log && log.response === "Sudah") {
-    return withStatusIcon(
-      "done",
-      `Tercapai (${formatDateTimeId(log.response_at)})`,
-    );
-  }
-  if (log && log.response === "Belum") {
-    return withStatusIcon(
-      "fail",
-      `Belum tercapai (${formatDateTimeId(log.response_at)})`,
-    );
-  }
-  if (!dueAt || !dueAt.isValid) {
-    return withStatusIcon("wait", "Menunggu data persalinan");
-  }
-  if (now < dueAt) {
-    return withStatusIcon("wait", "Belum masuk jadwal");
-  }
-  if (log && log.sent_at) {
-    return withStatusIcon("wait", "Menunggu konfirmasi");
-  }
-  return withStatusIcon("wait", "Menunggu pengingat");
-}
-
-function buildUserInfoMessage(user, postpartumLogs, now = nowWib()) {
+function buildUserInfoMessage(user) {
   const name = getDisplayName(user);
-  const hpht = getHphtDate(user);
-  const hpl = getHplDate(user);
-  const week = getGestationalWeek(user, now);
-  const deliveryAt = getDeliveryDateTime(user);
-  const today = toDateKey(now);
-  const deliveryValidationActive = isDeliveryValidationActive(user, now);
-  const pendingDeliveryStage = getPendingDeliveryPollStage(user);
-  const deliveryConfirmed = hasConfirmedDelivery(user);
-  const startWeek =
-    Number.isFinite(DELIVERY_VALIDATION_START_WEEK) &&
-    DELIVERY_VALIDATION_START_WEEK > 0
-      ? Math.floor(DELIVERY_VALIDATION_START_WEEK)
-      : 39;
-  const logByCode = new Map(
-    (Array.isArray(postpartumLogs) ? postpartumLogs : []).map((item) => [
-      item.visit_code,
-      item,
-    ]),
-  );
-
-  const visitLines = [];
-  let confirmedVisits = 0;
-  let failedVisits = 0;
-  for (let i = 0; i < POSTPARTUM_VISIT_SCHEDULES.length; i += 1) {
-    const visit = POSTPARTUM_VISIT_SCHEDULES[i];
-    const log = logByCode.get(visit.code) || null;
-    if (log && log.response === "Sudah") {
-      confirmedVisits += 1;
-    } else if (log && log.response === "Belum") {
-      failedVisits += 1;
-    }
-    const dueAt = deliveryAt ? getPostpartumDueAt(deliveryAt, visit) : null;
-    const dueText = dueAt ? formatDateTimeId(dueAt) : "-";
-    const statusText = buildPostpartumVisitStatusText(log, dueAt, now);
-    const goalText = String(visit.focusText || "-").trim();
-    visitLines.push(
-      `${i + 1}. *${visit.label}* (${visit.windowText})\nJadwal: ${dueText}\nStatus: ${statusText}\nFokus: ${goalText}`,
-    );
-  }
-
-  const deliveryStep = Number(user && user.delivery_data_step ? user.delivery_data_step : 0);
-  const collectingDeliveryText =
-    Number.isFinite(deliveryStep) && deliveryStep > 0
-      ? withStatusIcon(
-          "wait",
-          `Sedang isi data persalinan (tahap ${deliveryStep} dari ${DELIVERY_QUESTIONS.length})`,
-        )
-      : withStatusIcon("wait", "Data persalinan tidak sedang diisi");
-
   const accountStatusLabel = getReminderStatusLabel(user);
   const accountStatusText =
     accountStatusLabel === "Aktif" || accountStatusLabel === "Selesai"
@@ -1472,373 +1195,19 @@ function buildUserInfoMessage(user, postpartumLogs, now = nowWib()) {
         ? withStatusIcon("wait", "Jam pengingat belum disetel")
         : withStatusIcon("fail", "Pengingat FE sedang tidak aktif");
 
-  let deliveryReminderText = withStatusIcon("wait", "Menunggu data HPHT");
-  if (deliveryConfirmed) {
-    deliveryReminderText = withStatusIcon(
-      "done",
-      "Validasi persalinan selesai (sudah terkonfirmasi melahirkan)",
-    );
-  } else if (deliveryValidationActive) {
-    if (pendingDeliveryStage) {
-      deliveryReminderText = withStatusIcon(
-        "wait",
-        "Poll validasi persalinan terkirim, menunggu jawaban",
-      );
-    } else if (user && user.delivery_hpl_poll_sent_date === today) {
-      deliveryReminderText = withStatusIcon(
-        "done",
-        "Poll validasi persalinan hari ini sudah dikirim",
-      );
-    } else {
-      deliveryReminderText = withStatusIcon(
-        "wait",
-        "Pengingat validasi persalinan aktif, menunggu jadwal kirim",
-      );
-    }
-  } else if (week) {
-    deliveryReminderText = withStatusIcon(
-      "wait",
-      `Belum masuk fase validasi persalinan (minggu ${week}/${startWeek})`,
-    );
-  }
-
-  let postpartumReminderText = withStatusIcon("wait", "Menunggu data persalinan");
-  if (deliveryAt) {
-    if (confirmedVisits === POSTPARTUM_VISIT_SCHEDULES.length) {
-      postpartumReminderText = withStatusIcon(
-        "done",
-        "Semua target kunjungan KF/KN sudah tercapai",
-      );
-    } else if (failedVisits > 0) {
-      postpartumReminderText = withStatusIcon(
-        "fail",
-        `Ada ${failedVisits} kunjungan yang belum tercapai`,
-      );
-    } else {
-      postpartumReminderText = withStatusIcon(
-        "wait",
-        `Progres berjalan (${confirmedVisits}/${POSTPARTUM_VISIT_SCHEDULES.length})`,
-      );
-    }
-  }
-
   const lines = [
     `*Info Penting bundacare* - ${name}`,
     "",
     "*Status Pengingat*",
     `*Status akun:* ${accountStatusText}`,
     `*Pengingat tablet FE:* ${feReminderText}`,
-    `*Pengingat validasi persalinan:* ${deliveryReminderText}`,
-    `*Pengingat kunjungan KF/KN:* ${postpartumReminderText}`,
-    "",
-    "*Data Kehamilan*",
-    `*HPHT:* ${formatDateId(hpht || (user ? user.hpht_iso : null))}`,
-    `*HPL:* ${formatDateId(hpl)}`,
-    `*Usia kehamilan saat ini:* ${week ? `${week} minggu` : "-"}`,
     "",
     "*Catatan Harian*",
     `*Obat rutin:* ${toYesNoLabel(user ? user.routine_meds : null)}`,
     `*Konsumsi teh:* ${toYesNoLabel(user ? user.tea : null)}`,
   ];
 
-  const isPostpartum = Boolean(deliveryAt && deliveryConfirmed);
-  if (isPostpartum) {
-    lines.push(
-      "",
-      "*Data Persalinan*",
-      `*Status input persalinan:* ${collectingDeliveryText}`,
-      `*Tanggal/jam persalinan:* ${formatDateTimeId(deliveryAt)}`,
-      `*Tempat persalinan:* ${user && user.delivery_place ? user.delivery_place : "-"}`,
-      `*Penolong persalinan:* ${
-        user && user.delivery_birth_attendant ? user.delivery_birth_attendant : "-"
-      }`,
-      `*Penyulit persalinan:* ${
-        user && user.delivery_with_complication ? user.delivery_with_complication : "-"
-      }`,
-      `*Jenis kelamin bayi:* ${user && user.baby_gender ? user.baby_gender : "-"}`,
-      `*BB lahir bayi:* ${user && user.baby_birth_weight ? user.baby_birth_weight : "-"}`,
-      "",
-      "*Target & Progres Kunjungan KF/KN*",
-      `*Target kunjungan:* ${POSTPARTUM_VISIT_SCHEDULES.length} kunjungan`,
-      `*Progres tercapai:* ${confirmedVisits}/${POSTPARTUM_VISIT_SCHEDULES.length}`,
-      "",
-      "*Rincian Kunjungan*",
-      ...visitLines,
-    );
-  } else {
-    lines.push(
-      "",
-      "*Kunjungan Nifas & Bayi (KF/KN)*",
-      "Jadwal kunjungan nifas KF1 sampai KF4 akan otomatis aktif setelah konfirmasi persalinan.",
-    );
-  }
-
   return lines.join("\n");
-}
-
-function buildLaborPhaseMessage(user, now) {
-  if (
-    user &&
-    (user.delivery_hpl_response === "Sudah" ||
-      user.delivery_hpl3_response === "Sudah")
-  ) {
-    return null;
-  }
-  const week = getGestationalWeek(user, now);
-  if (!week || week < 37 || week > 41) {
-    return null;
-  }
-  const template = LABOR_PHASE_MESSAGES[week];
-  if (!template) {
-    return null;
-  }
-  if (week !== 40) {
-    return template;
-  }
-  const hpl = getHplDate(user);
-  const hplText = hpl ? formatDateId(hpl) : "-";
-  return `${template}\nPerkiraan HPL Ibu: ${hplText}.`;
-}
-
-function getDeliveryValidationStageDue(user, now) {
-  const startWeek =
-    Number.isFinite(DELIVERY_VALIDATION_START_WEEK) &&
-    DELIVERY_VALIDATION_START_WEEK > 0
-      ? Math.floor(DELIVERY_VALIDATION_START_WEEK)
-      : 39;
-  const week = getGestationalWeek(user, now);
-  if (!week || week < startWeek) {
-    return null;
-  }
-  if (hasConfirmedDelivery(user)) {
-    return null;
-  }
-
-  const today = toDateKey(now.startOf("day"));
-  return user.delivery_hpl_poll_sent_date === today ? null : "week39_daily";
-}
-
-function isDeliveryValidationActive(user, now) {
-  const startWeek =
-    Number.isFinite(DELIVERY_VALIDATION_START_WEEK) &&
-    DELIVERY_VALIDATION_START_WEEK > 0
-      ? Math.floor(DELIVERY_VALIDATION_START_WEEK)
-      : 39;
-  const week = getGestationalWeek(user, now);
-  if (!week || week < startWeek) {
-    return false;
-  }
-  return !hasConfirmedDelivery(user);
-}
-
-function getPendingDeliveryPollStage(user) {
-  if (!user || !user.delivery_poll_stage) {
-    return null;
-  }
-  if (user.delivery_poll_stage === "manual") {
-    return hasConfirmedDelivery(user) ? null : "manual";
-  }
-  if (user.delivery_poll_stage === "week39_daily") {
-    return hasConfirmedDelivery(user) ? null : "week39_daily";
-  }
-  if (user.delivery_poll_stage === "hpl" && !user.delivery_hpl_response) {
-    return "hpl";
-  }
-  if (user.delivery_poll_stage === "hpl3" && !user.delivery_hpl3_response) {
-    return "hpl3";
-  }
-  return null;
-}
-
-function buildDeliveryValidationMessage(user, now, stage) {
-  const greeting = getTimeGreeting(now);
-  const name = getDisplayName(user);
-  if (stage === "manual") {
-    return `${greeting}, ${name}.\nKami ingin memastikan apakah Ibu sudah melahirkan ya.`;
-  }
-  if (stage === "week39_daily") {
-    const week = getGestationalWeek(user, now);
-    const weekLabel = week ? `minggu ke-${week}` : "masa akhir kehamilan";
-    return `${greeting}, ${name}.\nMemasuki ${weekLabel}, kami ingin memastikan apakah Ibu sudah melahirkan ya.`;
-  }
-  const hpl = getHplDate(user);
-  const hplText = hpl ? formatDateId(hpl) : "-";
-  if (stage === "hpl3") {
-    return `${greeting}, ${name}.\nHari ini adalah H+3 dari HPL (${hplText}). Kami ingin memastikan kondisi Ibu ya.`;
-  }
-  return `${greeting}, ${name}.\nHari ini adalah HPL (${hplText}). Kami ingin memastikan kondisi Ibu ya.`;
-}
-
-function buildDeliveryValidationQuestion() {
-  return DELIVERY_VALIDATION_POLL_QUESTION;
-}
-
-function parseDeliveryValidationAnswer(input) {
-  if (!input) {
-    return null;
-  }
-  const normalized = stripTrailingPunctuation(input);
-  if (
-    normalized.includes("sudah melahir") ||
-    normalized.includes("udah melahir")
-  ) {
-    return "Sudah";
-  }
-  if (normalized.includes("belum melahir")) {
-    return "Belum";
-  }
-  // Pertanyaannya berbunyi apakah Ibu sudah melahirkan, jadi jawaban pendek seperti
-  // sudah, belum, ya, atau tidak adalah jawaban yang sah dan tidak boleh buntu.
-  if (/^(sudah|udah|ya|iya|yes|benar)$/.test(normalized)) {
-    return "Sudah";
-  }
-  if (/^(belum|blm|tidak|tdk|no|nggak|engga)$/.test(normalized)) {
-    return "Belum";
-  }
-  return null;
-}
-
-function getDeliveryDateTime(user) {
-  if (!user || !user.delivery_date_iso || !user.delivery_time) {
-    return null;
-  }
-  const parsed = DateTime.fromISO(
-    `${String(user.delivery_date_iso).trim()}T${String(user.delivery_time).trim()}`,
-    { zone: TIMEZONE },
-  );
-  if (!parsed.isValid) {
-    return null;
-  }
-  return parsed;
-}
-
-function validateDeliveryDateIso(deliveryDateIso, user, now = nowWib()) {
-  if (!deliveryDateIso) {
-    return { valid: false, message: "Tanggal melahirkan belum valid." };
-  }
-  const deliveryDate = DateTime.fromISO(String(deliveryDateIso), {
-    zone: TIMEZONE,
-  }).startOf("day");
-  if (!deliveryDate.isValid) {
-    return { valid: false, message: "Tanggal melahirkan belum valid." };
-  }
-  if (deliveryDate > now.startOf("day")) {
-    return {
-      valid: false,
-      message: "Tanggal melahirkan tidak boleh lebih dari hari ini.",
-    };
-  }
-  const hpht = getHphtDate(user);
-  if (hpht && deliveryDate < hpht.startOf("day")) {
-    return {
-      valid: false,
-      message: "Tanggal melahirkan tidak boleh sebelum tanggal HPHT.",
-    };
-  }
-  return { valid: true, message: "" };
-}
-
-function validateDeliveryDateTime(
-  user,
-  deliveryDateIso,
-  deliveryTime,
-  now = nowWib(),
-) {
-  if (!deliveryDateIso || !deliveryTime) {
-    return { valid: false, message: "Tanggal/jam melahirkan belum lengkap." };
-  }
-  const deliveryAt = getDeliveryDateTime({
-    delivery_date_iso: deliveryDateIso,
-    delivery_time: deliveryTime,
-  });
-  if (!deliveryAt) {
-    return {
-      valid: false,
-      message: "Tanggal atau jam melahirkan belum valid.",
-    };
-  }
-  const baseDateCheck = validateDeliveryDateIso(deliveryDateIso, user, now);
-  if (!baseDateCheck.valid) {
-    return baseDateCheck;
-  }
-  if (deliveryAt > now.plus({ minutes: 10 })) {
-    return {
-      valid: false,
-      message: "Jam melahirkan tidak boleh di masa depan.",
-    };
-  }
-  const hpht = getHphtDate(user);
-  if (hpht && deliveryAt < hpht.startOf("day")) {
-    return {
-      valid: false,
-      message: "Tanggal/jam melahirkan tidak boleh sebelum HPHT.",
-    };
-  }
-  return { valid: true, message: "" };
-}
-
-function hasConfirmedDelivery(user) {
-  if (!user) {
-    return false;
-  }
-  const hplResponse = String(user.delivery_hpl_response || "")
-    .trim()
-    .toLowerCase();
-  const hpl3Response = String(user.delivery_hpl3_response || "")
-    .trim()
-    .toLowerCase();
-  if (hplResponse === "sudah" || hpl3Response === "sudah") {
-    return true;
-  }
-  if (user.delivery_data_completed_at) {
-    return true;
-  }
-  const deliveryStep = Number(user.delivery_data_step || 0);
-  return Number.isFinite(deliveryStep) && deliveryStep > 0;
-}
-
-function isPostpartumMonitoringActive(user, now = nowWib()) {
-  if (
-    !user ||
-    !user.delivery_data_completed_at ||
-    !user.delivery_date_iso ||
-    !user.delivery_time
-  ) {
-    return false;
-  }
-  const deliveryAt = getDeliveryDateTime(user);
-  if (!deliveryAt) {
-    return false;
-  }
-  // Masa nifas normal berlangsung sampai 42 hari (KF4) pasca persalinan
-  const diffDays = Math.floor(now.startOf("day").diff(deliveryAt.startOf("day"), "days").days);
-  return Number.isFinite(diffDays) && diffDays >= 0 && diffDays <= 42;
-}
-
-function getPostpartumDueAt(deliveryAt, visit) {
-  if (!deliveryAt || !deliveryAt.isValid || !visit) {
-    return null;
-  }
-  return deliveryAt.plus({ hours: visit.startHours });
-}
-
-function buildPostpartumEducationMessage(user, now) {
-  const name = getDisplayName(user);
-  return `Selamat atas kelahiran buah hati, ${name}. 🤍\nbundacare akan terus menemani Ibu sampai masa krusial ini selesai.\nMasa nifas dan masa neonatal adalah masa yang sangat penting bagi ibu dan bayi. Pada periode ini, risiko gangguan kesehatan masih tinggi sehingga pemantauan rutin sangat diperlukan untuk memastikan ibu dan bayi dalam kondisi sehat.\nbundacare akan mengingatkan jadwal kunjungan KF dan KN sesuai waktu yang dianjurkan.\nBaca artikel lanjutan di: ${DELIVERY_ARTICLE_URL}`;
-}
-
-function buildPostpartumVisitMessage(user, visit) {
-  const greeting = getTimeGreeting(nowWib());
-  const name = getDisplayName(user);
-  const focusText = String(visit.focusText || "").trim();
-  const formattedFocus = focusText.replace(/\. Bayi:/, ".\n- Bayi:");
-  return `${greeting}, ${name}. 👩‍🍼\nPengingat kunjungan ${visit.label} (${visit.kind}). 📅\nRentang waktu: ${visit.windowText}.\nFokus kunjungan:\n- ${formattedFocus}\nYuk periksa ke tenaga kesehatan/fasilitas kesehatan ya. 🏥\nBaca artikel lanjutan di: ${DELIVERY_ARTICLE_URL}`;
-}
-
-function buildPostpartumVisitQuestion(visit) {
-  // Jawaban poll tidak bisa ditarik kembali, jadi jalan koreksinya disebut di tempat
-  // kesalahan itu paling sering terjadi.
-  return `Apakah Ibu sudah melakukan kunjungan ${visit.label}?\nSalah pencet? ketik koreksi ${visit.code.toLowerCase()} sudah`;
 }
 
 function previewOf(value, fallback = "[pesan]") {
@@ -2670,7 +2039,6 @@ function renderAdminDashboardPage(options = {}) {
           <div class="panel">
             <a href="/admin/api/export/users.csv" download>${icon("download")}Data user</a>
             <a href="/admin/api/export/reminder_logs.csv" download>${icon("download")}Catatan pengingat</a>
-            <a href="/admin/api/export/postpartum_logs.csv" download>${icon("download")}Catatan nifas</a>
           </div>
         </details>
         <form method="post" action="/admin/logout">
@@ -2889,13 +2257,9 @@ function renderAdminDashboardPage(options = {}) {
       function progress(user) {
         const logs = Number(user.total_logs || 0);
         const answered = Number(user.total_answered || 0);
-        const ppTotal = Number(user.postpartum_total || 0);
-        const done = !!user.delivery_data_completed_at || !!user.delivery_date_iso;
         return {
           fe: logs > 0 ? clampPct((answered * 100) / logs) : 0,
-          pp: ppTotal > 0 ? clampPct((Number(user.postpartum_sudah || 0) * 100) / ppTotal) : 0,
-          labor: done ? "Selesai" : (Number(user.delivery_data_step || 0) > 0 ? "Proses" : "Belum"),
-          started: logs > 0 || ppTotal > 0 || done,
+          started: logs > 0,
         };
       }
       async function fetchJson(url, options) {
@@ -3474,14 +2838,12 @@ function renderAdminUserDetailPage(waId, options = {}) {
         return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
       }
       function classifyPhase(user) {
-        if (Number(user.postpartum_total || 0) > 0 || user.delivery_date_iso) return 'pasca_kehamilan';
-        const labor = Number(user.delivery_data_step || 0) > 0 || !!user.delivery_poll_stage || !!user.delivery_hpl_poll_sent_date ||
-          !!user.delivery_hpl3_poll_sent_date || user.delivery_hpl_response === 'Sudah' || user.delivery_hpl3_response === 'Sudah';
-        if (labor) return 'persalinan';
-        if (user.status === 'onboarding' || !user.hpht_iso) return 'onboarding';
-        return 'kehamilan';
+        if (user.status === 'onboarding') return 'onboarding';
+        if (user.status === 'paused') return 'dijeda';
+        if (user.status === 'completed') return 'selesai';
+        return 'aktif';
       }
-      const PHASE_LABEL = { onboarding: 'Onboarding', kehamilan: 'Kehamilan', persalinan: 'Persalinan', pasca_kehamilan: 'Nifas' };
+      const PHASE_LABEL = { onboarding: 'Pendataan', aktif: 'Aktif', dijeda: 'Dijeda', selesai: 'Selesai' };
       const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Pendataan' };
       const STATUS_TONE = { active: 'badge badge-ok', paused: 'badge badge-warn', completed: 'badge', onboarding: 'badge badge-accent' };
       function setNote(text) { document.getElementById('page-note').textContent = text || ''; }
@@ -3709,12 +3071,6 @@ async function ensureUserColumns(db) {
   await ensureColumn(
     db,
     "users",
-    "last_labor_phase_message_date",
-    "last_labor_phase_message_date TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
     "last_onboarding_nudge_date",
     "last_onboarding_nudge_date TEXT",
   );
@@ -3727,18 +3083,6 @@ async function ensureUserColumns(db) {
   await ensureColumn(
     db,
     "users",
-    "last_delivery_poll_message_id",
-    "last_delivery_poll_message_id TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_poll_stage",
-    "delivery_poll_stage TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
     "fe_poll_last_attempt_at",
     "fe_poll_last_attempt_at TEXT",
   );
@@ -3747,118 +3091,6 @@ async function ensureUserColumns(db) {
     "users",
     "fe_poll_fail_count",
     "fe_poll_fail_count INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_poll_last_attempt_at",
-    "delivery_poll_last_attempt_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_poll_fail_count",
-    "delivery_poll_fail_count INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_poll_intro_stage",
-    "delivery_poll_intro_stage TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_poll_intro_date",
-    "delivery_poll_intro_date TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl_poll_sent_date",
-    "delivery_hpl_poll_sent_date TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl_response",
-    "delivery_hpl_response TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl_response_at",
-    "delivery_hpl_response_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl3_poll_sent_date",
-    "delivery_hpl3_poll_sent_date TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl3_response",
-    "delivery_hpl3_response TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_hpl3_response_at",
-    "delivery_hpl3_response_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_data_step",
-    "delivery_data_step INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(db, "users", "delivery_date", "delivery_date TEXT");
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_date_iso",
-    "delivery_date_iso TEXT",
-  );
-  await ensureColumn(db, "users", "delivery_time", "delivery_time TEXT");
-  await ensureColumn(db, "users", "delivery_place", "delivery_place TEXT");
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_birth_attendant",
-    "delivery_birth_attendant TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_with_complication",
-    "delivery_with_complication TEXT",
-  );
-  await ensureColumn(db, "users", "baby_gender", "baby_gender TEXT");
-  await ensureColumn(
-    db,
-    "users",
-    "baby_birth_weight",
-    "baby_birth_weight TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "mother_current_complaint",
-    "mother_current_complaint TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "delivery_data_completed_at",
-    "delivery_data_completed_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "users",
-    "postpartum_education_sent_at",
-    "postpartum_education_sent_at TEXT",
   );
 }
 
@@ -3881,265 +3113,6 @@ async function ensureReminderLogColumns(db) {
     "response_belum_count",
     "response_belum_count INTEGER NOT NULL DEFAULT 0",
   );
-}
-
-async function ensurePostpartumLogColumns(db) {
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "reminder_text_sent_at",
-    "reminder_text_sent_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "last_attempt_at",
-    "last_attempt_at TEXT",
-  );
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "fail_count",
-    "fail_count INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "response_count",
-    "response_count INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "response_sudah_count",
-    "response_sudah_count INTEGER NOT NULL DEFAULT 0",
-  );
-  await ensureColumn(
-    db,
-    "postpartum_visit_logs",
-    "response_belum_count",
-    "response_belum_count INTEGER NOT NULL DEFAULT 0",
-  );
-}
-
-function pickIsoMin(values) {
-  const filtered = (values || []).filter(Boolean).sort();
-  return filtered.length > 0 ? filtered[0] : null;
-}
-
-function pickIsoMax(values) {
-  const filtered = (values || []).filter(Boolean).sort();
-  return filtered.length > 0 ? filtered[filtered.length - 1] : null;
-}
-
-function scoreLegacyPostpartumLog(log) {
-  if (!log) {
-    return 0;
-  }
-  if (log.response === "Sudah") {
-    return 100;
-  }
-  if (log.response === "Belum") {
-    return 80;
-  }
-  if (log.poll_message_id) {
-    return 50;
-  }
-  if (log.sent_at) {
-    return 40;
-  }
-  if (log.reminder_text_sent_at) {
-    return 30;
-  }
-  return 10;
-}
-
-function buildMergedLegacyPostpartumLogRows(waId, visit, legacyLogs) {
-  const rows = Array.isArray(legacyLogs) ? legacyLogs.filter(Boolean) : [];
-  if (!waId || !visit || rows.length === 0) {
-    return null;
-  }
-
-  const ranked = [...rows].sort((a, b) => {
-    const scoreDiff = scoreLegacyPostpartumLog(b) - scoreLegacyPostpartumLog(a);
-    if (scoreDiff !== 0) {
-      return scoreDiff;
-    }
-    return String(b.updated_at || "").localeCompare(String(a.updated_at || ""));
-  });
-  const base = ranked[0];
-  if (!base) {
-    return null;
-  }
-
-  const nowIso = nowWib().toISO();
-  const response = rows.some((item) => item.response === "Sudah")
-    ? "Sudah"
-    : rows.some((item) => item.response === "Belum")
-      ? "Belum"
-      : null;
-  const responseRows = rows.filter((item) => item.response === response);
-  const pollSource = [...rows]
-    .filter((item) => item.poll_message_id)
-    .sort((a, b) => String(b.sent_at || "").localeCompare(String(a.sent_at || "")))[0];
-
-  const responseCount = rows.reduce((total, item) => {
-    const count = Number(item.response_count || 0);
-    return Number.isFinite(count) && count > 0 ? total + count : total;
-  }, 0);
-  const responseSudahCount = rows.reduce((total, item) => {
-    const count = Number(item.response_sudah_count || 0);
-    return Number.isFinite(count) && count > 0 ? total + count : total;
-  }, 0);
-  const responseBelumCount = rows.reduce((total, item) => {
-    const count = Number(item.response_belum_count || 0);
-    return Number.isFinite(count) && count > 0 ? total + count : total;
-  }, 0);
-
-  return {
-    wa_id: waId,
-    visit_code: visit.code,
-    visit_kind: visit.kind,
-    visit_label: visit.label,
-    window_text: visit.windowText,
-    benefit_text: visit.focusText,
-    due_at: pickIsoMin(rows.map((item) => item.due_at)) || nowIso,
-    reminder_text_sent_at: pickIsoMin(rows.map((item) => item.reminder_text_sent_at)),
-    sent_at: pickIsoMin(rows.map((item) => item.sent_at)),
-    poll_message_id: pollSource ? pollSource.poll_message_id : null,
-    last_attempt_at: pickIsoMax(rows.map((item) => item.last_attempt_at)),
-    fail_count: Math.max(
-      0,
-      ...rows.map((item) => {
-        const count = Number(item.fail_count || 0);
-        return Number.isFinite(count) && count >= 0 ? count : 0;
-      }),
-    ),
-    response,
-    response_count: responseCount,
-    response_sudah_count: responseSudahCount,
-    response_belum_count: responseBelumCount,
-    response_at:
-      responseRows.length > 0
-        ? pickIsoMax(responseRows.map((item) => item.response_at))
-        : null,
-    created_at: pickIsoMin(rows.map((item) => item.created_at)) || nowIso,
-    updated_at: pickIsoMax(rows.map((item) => item.updated_at)) || nowIso,
-  };
-}
-
-async function migrateLegacyPostpartumVisitLogs(db) {
-  const legacyCodes = LEGACY_POSTPARTUM_VISIT_GROUPS.flatMap(
-    (item) => item.legacyCodes,
-  );
-  if (legacyCodes.length === 0) {
-    return;
-  }
-
-  const placeholders = legacyCodes.map(() => "?").join(", ");
-  const legacyRows = await dbAll(
-    db,
-    `SELECT *
-     FROM postpartum_visit_logs
-     WHERE visit_code IN (${placeholders})
-     ORDER BY wa_id ASC, id ASC`,
-    legacyCodes,
-  );
-  if (!legacyRows || legacyRows.length === 0) {
-    return;
-  }
-
-  const rowsByUser = new Map();
-  for (const row of legacyRows) {
-    if (!rowsByUser.has(row.wa_id)) {
-      rowsByUser.set(row.wa_id, []);
-    }
-    rowsByUser.get(row.wa_id).push(row);
-  }
-
-  for (const [waId, rows] of rowsByUser.entries()) {
-    for (const group of LEGACY_POSTPARTUM_VISIT_GROUPS) {
-      const visit = POSTPARTUM_VISIT_BY_CODE.get(group.code);
-      if (!visit) {
-        continue;
-      }
-      const relatedLegacy = rows.filter((row) =>
-        group.legacyCodes.includes(row.visit_code),
-      );
-      if (relatedLegacy.length === 0) {
-        continue;
-      }
-
-      const existingGrouped = await dbGet(
-        db,
-        `SELECT id FROM postpartum_visit_logs WHERE wa_id = ? AND visit_code = ?`,
-        [waId, group.code],
-      );
-      if (!existingGrouped) {
-        const merged = buildMergedLegacyPostpartumLogRows(
-          waId,
-          visit,
-          relatedLegacy,
-        );
-        if (merged) {
-          await dbRun(
-            db,
-            `INSERT INTO postpartum_visit_logs (
-              wa_id,
-              visit_code,
-              visit_kind,
-              visit_label,
-              window_text,
-              benefit_text,
-              due_at,
-              reminder_text_sent_at,
-              sent_at,
-              poll_message_id,
-              last_attempt_at,
-              fail_count,
-              response,
-              response_count,
-              response_sudah_count,
-              response_belum_count,
-              response_at,
-              created_at,
-              updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              merged.wa_id,
-              merged.visit_code,
-              merged.visit_kind,
-              merged.visit_label,
-              merged.window_text,
-              merged.benefit_text,
-              merged.due_at,
-              merged.reminder_text_sent_at,
-              merged.sent_at,
-              merged.poll_message_id,
-              merged.last_attempt_at,
-              merged.fail_count,
-              merged.response,
-              merged.response_count,
-              merged.response_sudah_count,
-              merged.response_belum_count,
-              merged.response_at,
-              merged.created_at,
-              merged.updated_at,
-            ],
-          );
-        }
-      }
-
-      const legacyPlaceholders = group.legacyCodes.map(() => "?").join(", ");
-      await dbRun(
-        db,
-        `DELETE FROM postpartum_visit_logs
-         WHERE wa_id = ? AND visit_code IN (${legacyPlaceholders})`,
-        [waId, ...group.legacyCodes],
-      );
-    }
-  }
 }
 
 async function ensureSettingsTable(db) {
@@ -4182,8 +3155,6 @@ async function initDb(db) {
       name TEXT,
       age TEXT,
       pregnancy_number TEXT,
-      hpht TEXT,
-      hpht_iso TEXT,
       routine_meds INTEGER,
       tea INTEGER,
       reminder_person TEXT,
@@ -4196,34 +3167,9 @@ async function initDb(db) {
       onboarding_step INTEGER NOT NULL DEFAULT 1,
       last_reminder_date TEXT,
       last_poll_message_id TEXT,
-      last_labor_phase_message_date TEXT,
       last_reminder_text_date TEXT,
-      last_delivery_poll_message_id TEXT,
-      delivery_poll_stage TEXT,
       fe_poll_last_attempt_at TEXT,
       fe_poll_fail_count INTEGER NOT NULL DEFAULT 0,
-      delivery_poll_last_attempt_at TEXT,
-      delivery_poll_fail_count INTEGER NOT NULL DEFAULT 0,
-      delivery_poll_intro_stage TEXT,
-      delivery_poll_intro_date TEXT,
-      delivery_hpl_poll_sent_date TEXT,
-      delivery_hpl_response TEXT,
-      delivery_hpl_response_at TEXT,
-      delivery_hpl3_poll_sent_date TEXT,
-      delivery_hpl3_response TEXT,
-      delivery_hpl3_response_at TEXT,
-      delivery_data_step INTEGER NOT NULL DEFAULT 0,
-      delivery_date TEXT,
-      delivery_date_iso TEXT,
-      delivery_time TEXT,
-      delivery_place TEXT,
-      delivery_birth_attendant TEXT,
-      delivery_with_complication TEXT,
-      baby_gender TEXT,
-      baby_birth_weight TEXT,
-      mother_current_complaint TEXT,
-      delivery_data_completed_at TEXT,
-      postpartum_education_sent_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -4246,51 +3192,12 @@ async function initDb(db) {
 
   await dbRun(
     db,
-    `CREATE TABLE IF NOT EXISTS postpartum_visit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      wa_id TEXT NOT NULL,
-      visit_code TEXT NOT NULL,
-      visit_kind TEXT NOT NULL,
-      visit_label TEXT NOT NULL,
-      window_text TEXT NOT NULL,
-      benefit_text TEXT NOT NULL,
-      due_at TEXT NOT NULL,
-      reminder_text_sent_at TEXT,
-      sent_at TEXT,
-      poll_message_id TEXT,
-      last_attempt_at TEXT,
-      fail_count INTEGER NOT NULL DEFAULT 0,
-      response TEXT,
-      response_count INTEGER NOT NULL DEFAULT 0,
-      response_sudah_count INTEGER NOT NULL DEFAULT 0,
-      response_belum_count INTEGER NOT NULL DEFAULT 0,
-      response_at TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE(wa_id, visit_code)
-    )`,
-  );
-
-  await dbRun(
-    db,
     `CREATE INDEX IF NOT EXISTS idx_users_active_loop
      ON users (status, allow_remindcare, is_blocked, reminder_time, last_reminder_date)`,
-  );
-  await dbRun(
-    db,
-    `CREATE INDEX IF NOT EXISTS idx_postpartum_logs_wa_due
-     ON postpartum_visit_logs (wa_id, due_at, sent_at, response)`,
-  );
-  await dbRun(
-    db,
-    `CREATE INDEX IF NOT EXISTS idx_postpartum_logs_poll
-     ON postpartum_visit_logs (wa_id, poll_message_id)`,
   );
 
   await ensureUserColumns(db);
   await ensureReminderLogColumns(db);
-  await ensurePostpartumLogColumns(db);
-  await migrateLegacyPostpartumVisitLogs(db);
 
   await ensureAliasTable(db);
   await loadAliasCache(db);
@@ -4455,80 +3362,6 @@ function normalizeTimeInput(input) {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-function normalizeBirthWeightGram(input) {
-  if (!input) {
-    return null;
-  }
-  const raw = String(input).trim().toLowerCase();
-  if (!raw) {
-    return null;
-  }
-  // Dukung masukan dalam kilogram (misal: "3.2 kg", "3,2 kg", "3 kg", "3.2", "3,2")
-  const kgMatch = raw.match(/^(\d+(?:[.,]\d+)?)\s*(?:kg|kilo(?:gram)?)?$/);
-  if (kgMatch && (raw.includes("kg") || raw.includes("kilo") || /^\d+[.,]\d+$/.test(raw) || (Number(raw) >= 1 && Number(raw) <= 6))) {
-    const val = Number(kgMatch[1].replace(",", "."));
-    if (Number.isFinite(val) && val >= 0.5 && val <= 6.0) {
-      return `${Math.round(val * 1000)} gram`;
-    }
-  }
-  const match = raw.match(/(\d[\d.,]*)/);
-  if (!match || !match[1]) {
-    return null;
-  }
-  const gramsText = match[1].replace(/\D/g, "");
-  if (!gramsText) {
-    return null;
-  }
-  const grams = Number(gramsText);
-  if (!Number.isFinite(grams) || grams < 500 || grams > 6000) {
-    return null;
-  }
-  return `${Math.round(grams)} gram`;
-}
-
-function parseHpht(input) {
-  const raw = input ? input.trim() : "";
-  if (!raw) {
-    return { raw: "", iso: null };
-  }
-
-  const patterns = [
-    { regex: /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/, order: "ymd" },
-    { regex: /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/, order: "dmy" },
-  ];
-
-  for (const pattern of patterns) {
-    const match = raw.match(pattern.regex);
-    if (!match) {
-      continue;
-    }
-
-    let year;
-    let month;
-    let day;
-
-    if (pattern.order === "ymd") {
-      year = Number(match[1]);
-      month = Number(match[2]);
-      day = Number(match[3]);
-    } else {
-      day = Number(match[1]);
-      month = Number(match[2]);
-      year = Number(match[3]);
-    }
-
-    const parsed = DateTime.fromObject(
-      { year, month, day },
-      { zone: TIMEZONE },
-    );
-    if (parsed.isValid) {
-      return { raw, iso: parsed.toFormat("yyyy-LL-dd") };
-    }
-  }
-
-  return { raw, iso: null };
-}
-
 function parsePollAnswer(input) {
   if (!input) {
     return null;
@@ -4633,39 +3466,6 @@ function buildCsv(rows, columns) {
   return [header, ...lines].join("\n");
 }
 
-function buildPostpartumSnapshot(postpartumLogs) {
-  const logs = Array.isArray(postpartumLogs) ? postpartumLogs : [];
-  const byCode = new Map(logs.map((item) => [item.visit_code, item]));
-  const total = logs.length;
-  const sent = logs.filter((item) => item.sent_at).length;
-  const sudah = logs.filter((item) => item.response === "Sudah").length;
-  const belum = logs.filter((item) => item.response === "Belum").length;
-  const pending = logs.filter((item) => item.sent_at && !item.response).length;
-
-  const snapshot = {
-    postpartum_total: total,
-    postpartum_sent: sent,
-    postpartum_sudah: sudah,
-    postpartum_belum: belum,
-    postpartum_pending: pending,
-  };
-
-  const confirmedDates = [];
-  for (const visit of POSTPARTUM_VISIT_SCHEDULES) {
-    const key = visit.code.toLowerCase();
-    const log = byCode.get(visit.code) || null;
-    const confirmedAt =
-      log && log.response === "Sudah" ? log.response_at || null : null;
-    snapshot[`${key}_confirmed_at`] = confirmedAt;
-    if (confirmedAt) {
-      confirmedDates.push(confirmedAt);
-    }
-  }
-  snapshot.postpartum_last_confirmed_at = pickIsoMax(confirmedDates);
-
-  return snapshot;
-}
-
 // Aturan "perlu tindakan": setiap kondisi di bawah berarti user TIDAK akan menerima
 // pengingat hari ini, atau pengiriman ke dia sedang bermasalah. Dashboard memakai daftar
 // ini supaya operator tidak perlu menebak dari angka nol.
@@ -4733,10 +3533,7 @@ function buildNeedsAction(users) {
           };
         }
       }
-      const failCount = Math.max(
-        Number(user.fe_poll_fail_count || 0),
-        Number(user.delivery_poll_fail_count || 0),
-      );
+      const failCount = Number(user.fe_poll_fail_count || 0);
       if (failCount >= 2) {
         return {
           code: "send_failure",
@@ -4891,7 +3688,7 @@ async function getAdminSummary(db) {
   const actionRows = await dbAll(
     db,
     `SELECT wa_id, name, status, reminder_time, allow_remindcare, is_blocked,
-            fe_poll_fail_count, delivery_poll_fail_count
+            fe_poll_fail_count
      FROM users ORDER BY name COLLATE NOCASE`,
   );
   return {
@@ -4923,27 +3720,7 @@ async function getAdminUsers(db) {
       u.wa_id,
       u.name,
       u.status,
-      u.hpht_iso,
       u.reminder_time,
-      u.delivery_data_step,
-      u.delivery_poll_stage,
-      u.delivery_hpl_poll_sent_date,
-      u.delivery_hpl3_poll_sent_date,
-      u.delivery_hpl_response,
-      u.delivery_hpl3_response,
-      u.delivery_date_iso,
-      u.delivery_time,
-      u.delivery_place,
-      u.delivery_birth_attendant,
-      u.delivery_with_complication,
-      u.baby_gender,
-      u.baby_birth_weight,
-      u.mother_current_complaint,
-      u.delivery_data_completed_at,
-      COALESCE(pv.postpartum_total, 0) as postpartum_total,
-      COALESCE(pv.postpartum_sent, 0) as postpartum_sent,
-      COALESCE(pv.postpartum_sudah, 0) as postpartum_sudah,
-      COALESCE(pv.postpartum_belum, 0) as postpartum_belum,
       rl_last.reminder_date as last_response_date,
       rl_last.response as last_response,
       rl_first.reminder_date as first_reminder_date,
@@ -4961,15 +3738,6 @@ async function getAdminUsers(db) {
        FROM reminder_logs
        GROUP BY wa_id
      ) agg ON agg.wa_id = u.wa_id
-     LEFT JOIN (
-       SELECT wa_id,
-              COUNT(*) as postpartum_total,
-              SUM(CASE WHEN sent_at IS NOT NULL THEN 1 ELSE 0 END) as postpartum_sent,
-              SUM(CASE WHEN response = 'Sudah' THEN 1 ELSE 0 END) as postpartum_sudah,
-              SUM(CASE WHEN response = 'Belum' THEN 1 ELSE 0 END) as postpartum_belum
-       FROM postpartum_visit_logs
-       GROUP BY wa_id
-     ) pv ON pv.wa_id = u.wa_id
      LEFT JOIN reminder_logs rl_last
        ON rl_last.wa_id = u.wa_id
        AND rl_last.reminder_date = (
@@ -4989,53 +3757,18 @@ async function getAdminUsers(db) {
 }
 
 async function deleteUserData(db, waId) {
-  await dbRun(db, "DELETE FROM postpartum_visit_logs WHERE wa_id = ?", [waId]);
   await dbRun(db, "DELETE FROM reminder_logs WHERE wa_id = ?", [waId]);
   await dbRun(db, "DELETE FROM users WHERE wa_id = ?", [waId]);
   await dbRun(db, "DELETE FROM registrations WHERE phone = ?", [waId.replace(/@c\.us$/, "")]);
 }
 
-function hasAnyDeliveryRecord(user) {
-  if (!user) {
-    return false;
-  }
-  const step = Number(user.delivery_data_step || 0);
-  if (Number.isFinite(step) && step > 0) {
-    return true;
-  }
-  if (
-    user.delivery_data_completed_at ||
-    user.delivery_date ||
-    user.delivery_date_iso ||
-    user.delivery_time ||
-    user.delivery_place ||
-    user.delivery_birth_attendant ||
-    user.delivery_with_complication ||
-    user.baby_gender ||
-    user.baby_birth_weight ||
-    user.mother_current_complaint
-  ) {
-    return true;
-  }
-  const hplResponse = String(user.delivery_hpl_response || "")
-    .trim()
-    .toLowerCase();
-  const hpl3Response = String(user.delivery_hpl3_response || "")
-    .trim()
-    .toLowerCase();
-  return hplResponse === "sudah" || hpl3Response === "sudah";
-}
-
 async function restartUserDataFromBeginning(db, waId) {
-  await clearPostpartumVisitLogs(db, waId);
   await updateUser(db, waId, {
     status: "onboarding",
     onboarding_step: 1,
     name: null,
     age: null,
     pregnancy_number: null,
-    hpht: null,
-    hpht_iso: null,
     routine_meds: null,
     tea: null,
     reminder_person: null,
@@ -5043,34 +3776,9 @@ async function restartUserDataFromBeginning(db, waId) {
     reminder_time: null,
     last_reminder_date: null,
     last_poll_message_id: null,
-    last_labor_phase_message_date: null,
     last_reminder_text_date: null,
-    last_delivery_poll_message_id: null,
-    delivery_poll_stage: null,
     fe_poll_last_attempt_at: null,
     fe_poll_fail_count: 0,
-    delivery_poll_last_attempt_at: null,
-    delivery_poll_fail_count: 0,
-    delivery_poll_intro_stage: null,
-    delivery_poll_intro_date: null,
-    delivery_hpl_poll_sent_date: null,
-    delivery_hpl_response: null,
-    delivery_hpl_response_at: null,
-    delivery_hpl3_poll_sent_date: null,
-    delivery_hpl3_response: null,
-    delivery_hpl3_response_at: null,
-    delivery_data_step: 0,
-    delivery_date: null,
-    delivery_date_iso: null,
-    delivery_time: null,
-    delivery_place: null,
-    delivery_birth_attendant: null,
-    delivery_with_complication: null,
-    baby_gender: null,
-    baby_birth_weight: null,
-    mother_current_complaint: null,
-    delivery_data_completed_at: null,
-    postpartum_education_sent_at: null,
   });
 }
 
@@ -5098,72 +3806,14 @@ async function getUserDetail(db, waId) {
      ORDER BY reminder_date DESC, id DESC`,
     [waId],
   );
-  const postpartumLogs = await dbAll(
-    db,
-    `SELECT
-       visit_code,
-       visit_kind,
-       visit_label,
-       window_text,
-       benefit_text,
-       due_at,
-       reminder_text_sent_at,
-       sent_at,
-       poll_message_id,
-       last_attempt_at,
-       fail_count,
-       response,
-       response_count,
-       response_sudah_count,
-       response_belum_count,
-       response_at,
-       created_at,
-       updated_at
-     FROM postpartum_visit_logs
-     WHERE wa_id = ?
-     ORDER BY due_at ASC, id ASC`,
-    [waId],
-  );
-  const postpartumTotals = await dbGet(
-    db,
-    `SELECT
-       COUNT(*) as total,
-       SUM(CASE WHEN sent_at IS NOT NULL THEN 1 ELSE 0 END) as sent,
-       SUM(CASE WHEN response = 'Sudah' THEN 1 ELSE 0 END) as sudah,
-       SUM(CASE WHEN response = 'Belum' THEN 1 ELSE 0 END) as belum
-     FROM postpartum_visit_logs
-     WHERE wa_id = ?`,
-    [waId],
-  );
-  const now = nowWib();
-  const hpht = user ? getHphtDate(user) : null;
-  const hpl = user ? getHplDate(user) : null;
-  const gestationalWeek = user ? getGestationalWeek(user, now) : null;
 
   return {
-    user: user
-      ? {
-          ...user,
-          hpl_iso: hpl ? hpl.toISODate() : null,
-          gestational_week: gestationalWeek,
-        }
-      : null,
+    user: user || null,
     totals: {
       total_sudah: totals && totals.total_sudah ? totals.total_sudah : 0,
       total_belum: totals && totals.total_belum ? totals.total_belum : 0,
     },
     logs,
-    postpartum_logs: postpartumLogs,
-    postpartum_totals: {
-      total:
-        postpartumTotals && postpartumTotals.total ? postpartumTotals.total : 0,
-      sent:
-        postpartumTotals && postpartumTotals.sent ? postpartumTotals.sent : 0,
-      sudah:
-        postpartumTotals && postpartumTotals.sudah ? postpartumTotals.sudah : 0,
-      belum:
-        postpartumTotals && postpartumTotals.belum ? postpartumTotals.belum : 0,
-    },
   };
 }
 
@@ -5379,48 +4029,6 @@ function shouldSendNow(reminderTime, now) {
   return now.diff(scheduled, "minutes").minutes <= staleLimit;
 }
 
-// Pengingat bantu (kunjungan nifas & validasi persalinan) dikirim di jendela pra-pengingat.
-// Kalau jam pengingat tepat di awal jam kerja (mis. 03:00 pada jam kerja 03:00-23:59),
-// jendela pra jatuh di luar jam kerja, jadi pengingat bantu juga dibuka saat pengingat
-// harian sudah jatuh tempo. Keduanya idempoten (takeSendAttempt + penanda sent),
-// sehingga tidak menghasilkan kiriman ganda.
-function isReminderAssistWindow(reminderTime, now) {
-  return shouldSendBeforeReminder(reminderTime, now, 2) || shouldSendNow(reminderTime, now);
-}
-
-function shouldSendBeforeReminder(reminderTime, now, leadHours = 2) {
-  if (!reminderTime) {
-    return false;
-  }
-  const [hour, minute] = String(reminderTime).split(":").map(Number);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-    return false;
-  }
-  // Dihitung dari menit-dalam-hari, bukan now.set(...), supaya jendela pra-pengingat
-  // yang melewati tengah malam ikut benar. Contoh: pengingat 01:00 punya jendela pra
-  // 23:00-01:00; versi lama memotongnya jadi 00:00-01:00 karena `scheduled` selalu
-  // di hari yang sama. Dulu tidak terasa karena jam 00:00-02:00 belum boleh dipilih.
-  const nowMinutes = now.hour * 60 + now.minute;
-  const scheduledMinutes = hour * 60 + minute;
-  const untilReminder = (scheduledMinutes - nowMinutes + 1440) % 1440;
-  // untilReminder === 0 berarti sekarang tepat jam pengingat: itu tugas shouldSendNow,
-  // bukan jendela pra.
-  return untilReminder > 0 && untilReminder <= leadHours * 60;
-}
-
-function isPregnancyActive(user, now) {
-  const start = getHphtDate(user);
-  if (!start) {
-    return true;
-  }
-  const weeksLimit =
-    Number.isFinite(PREGNANCY_WEEKS_LIMIT) && PREGNANCY_WEEKS_LIMIT > 0
-      ? PREGNANCY_WEEKS_LIMIT
-      : 42;
-  const end = start.plus({ weeks: weeksLimit }).endOf("day");
-  return now <= end;
-}
-
 async function ensureReminderLog(db, waId, dateKey) {
   const nowIso = nowWib().toISO();
   await dbRun(
@@ -5470,292 +4078,6 @@ async function recordDailyResponse(db, waId, dateKey, response) {
     [response, nextSudah, nextBelum, waId, dateKey],
   );
   return { allowed, limit, count: currentCount };
-}
-
-async function clearPostpartumVisitLogs(db, waId) {
-  await dbRun(db, "DELETE FROM postpartum_visit_logs WHERE wa_id = ?", [waId]);
-}
-
-async function getPostpartumVisitLogs(db, waId) {
-  return dbAll(
-    db,
-    `SELECT
-      id,
-      wa_id,
-      visit_code,
-      visit_kind,
-      visit_label,
-      window_text,
-      benefit_text,
-      due_at,
-      reminder_text_sent_at,
-      sent_at,
-      poll_message_id,
-      last_attempt_at,
-      fail_count,
-      response,
-      response_count,
-      response_sudah_count,
-      response_belum_count,
-      response_at,
-      created_at,
-      updated_at
-     FROM postpartum_visit_logs
-     WHERE wa_id = ?
-     ORDER BY due_at ASC, id ASC`,
-    [waId],
-  );
-}
-
-async function getPostpartumVisitLogByPollMessageId(db, waId, pollMessageId) {
-  if (!pollMessageId) {
-    return null;
-  }
-  return dbGet(
-    db,
-    `SELECT *
-     FROM postpartum_visit_logs
-     WHERE wa_id = ? AND poll_message_id = ?`,
-    [waId, pollMessageId],
-  );
-}
-
-async function getLatestPendingPostpartumVisitLog(db, waId) {
-  return dbGet(
-    db,
-    `SELECT *
-     FROM postpartum_visit_logs
-     WHERE wa_id = ?
-       AND poll_message_id IS NOT NULL
-       AND response IS NULL
-     ORDER BY sent_at DESC, id DESC
-     LIMIT 1`,
-    [waId],
-  );
-}
-
-async function ensurePostpartumVisitLog(db, waId, visit, dueAt) {
-  const nowIso = nowWib().toISO();
-  await dbRun(
-    db,
-    `INSERT OR IGNORE INTO postpartum_visit_logs (
-      wa_id,
-      visit_code,
-      visit_kind,
-      visit_label,
-      window_text,
-      benefit_text,
-      due_at,
-      reminder_text_sent_at,
-      sent_at,
-      poll_message_id,
-      last_attempt_at,
-      fail_count,
-      response,
-      response_count,
-      response_sudah_count,
-      response_belum_count,
-      response_at,
-      created_at,
-      updated_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 0, NULL, 0, 0, 0, NULL, ?, ?)`,
-    [
-      waId,
-      visit.code,
-      visit.kind,
-      visit.label,
-      visit.windowText,
-      visit.focusText,
-      dueAt.toISO(),
-      nowIso,
-      nowIso,
-    ],
-  );
-}
-
-async function markPostpartumVisitSent(db, waId, visitCode, pollMessageId) {
-  const nowIso = nowWib().toISO();
-  await dbRun(
-    db,
-    `UPDATE postpartum_visit_logs
-     SET sent_at = ?,
-         poll_message_id = ?,
-         last_attempt_at = ?,
-         fail_count = 0,
-         updated_at = ?
-     WHERE wa_id = ? AND visit_code = ?`,
-    [nowIso, pollMessageId, nowIso, nowIso, waId, visitCode],
-  );
-}
-
-async function markPostpartumVisitTextSent(db, waId, visitCode) {
-  const nowIso = nowWib().toISO();
-  await dbRun(
-    db,
-    `UPDATE postpartum_visit_logs
-     SET reminder_text_sent_at = COALESCE(reminder_text_sent_at, ?),
-         updated_at = ?
-     WHERE wa_id = ? AND visit_code = ?`,
-    [nowIso, nowIso, waId, visitCode],
-  );
-}
-
-async function markPostpartumVisitSendFailed(db, waId, visitCode, failCount) {
-  const nowIso = nowWib().toISO();
-  const nextFailCount =
-    Number.isFinite(Number(failCount)) && Number(failCount) >= 0
-      ? Number(failCount) + 1
-      : 1;
-  await dbRun(
-    db,
-    `UPDATE postpartum_visit_logs
-     SET last_attempt_at = ?,
-         fail_count = ?,
-         updated_at = ?
-     WHERE wa_id = ? AND visit_code = ?`,
-    [nowIso, nextFailCount, nowIso, waId, visitCode],
-  );
-}
-
-// Jawaban mis-tap pada kunjungan nifas tidak bisa dihapus, jadi perlu jalan koreksi.
-function parsePostpartumCorrection(input) {
-  if (!input) {
-    return null;
-  }
-  const match = String(input)
-    .trim()
-    .toLowerCase()
-    .match(/^koreksi\s+(?:kunjungan\s+)?(kfkn|kf|kn)[\s-]?([1-4])\s+(sudah|belum)$/);
-  if (!match) {
-    return null;
-  }
-  const prefix = match[1].toUpperCase();
-  const number = match[2];
-  const rawCode = prefix === "KFKN" ? `KFKN${number}` : `${prefix}${number}`;
-  return {
-    rawCode,
-    response: match[3] === "sudah" ? "Sudah" : "Belum",
-  };
-}
-
-function resolveVisitCode(rawCode) {
-  const code = String(rawCode || "").toUpperCase();
-  if (POSTPARTUM_VISIT_BY_CODE.has(code)) {
-    return code;
-  }
-  for (const group of LEGACY_POSTPARTUM_VISIT_GROUPS) {
-    if (group.legacyCodes && group.legacyCodes.includes(code)) {
-      return group.code;
-    }
-  }
-  return null;
-}
-
-async function applyPostpartumCorrection(db, client, user, correction) {
-  const code = resolveVisitCode(correction.rawCode);
-  if (!code) {
-    return false;
-  }
-  const visitLog = await dbGet(
-    db,
-    `SELECT * FROM postpartum_visit_logs WHERE wa_id = ? AND visit_code = ? ORDER BY id DESC LIMIT 1`,
-    [user.wa_id, code],
-  );
-  if (!visitLog) {
-    await sendText(
-      client,
-      user.wa_id,
-      `Belum ada catatan kunjungan ${code}. Ketik *info* untuk lihat status kunjungan.`,
-    );
-    return true;
-  }
-  const nowIso = nowWib().toISO();
-  await dbRun(
-    db,
-    `UPDATE postpartum_visit_logs SET response = ?, response_at = ?, updated_at = ? WHERE id = ?`,
-    [correction.response, nowIso, nowIso, visitLog.id],
-  );
-  await sendText(
-    client,
-    user.wa_id,
-    `Catatan ${code} diperbarui menjadi ${correction.response.toLowerCase()}. Ketik *info* untuk lihat ringkasannya.`,
-  );
-  return true;
-}
-
-async function recordPostpartumVisitResponse(db, visitLog, response) {
-  const sudahCount =
-    visitLog && Number.isFinite(Number(visitLog.response_sudah_count))
-      ? Number(visitLog.response_sudah_count)
-      : 0;
-  const belumCount =
-    visitLog && Number.isFinite(Number(visitLog.response_belum_count))
-      ? Number(visitLog.response_belum_count)
-      : 0;
-  const responseCount =
-    visitLog && Number.isFinite(Number(visitLog.response_count))
-      ? Number(visitLog.response_count)
-      : 0;
-  const limit = getMaxPollResponsesPerDay();
-  const isSudah = response === "Sudah";
-  const currentCount = isSudah ? sudahCount : belumCount;
-  const allowed = limit === null || currentCount < limit;
-  const nextSudah = isSudah && allowed ? sudahCount + 1 : sudahCount;
-  const nextBelum = !isSudah && allowed ? belumCount + 1 : belumCount;
-  const nextResponseCount = allowed ? responseCount + 1 : responseCount;
-  const nowIso = nowWib().toISO();
-  await dbRun(
-    db,
-    `UPDATE postpartum_visit_logs
-     SET response = ?,
-         response_count = ?,
-         response_sudah_count = ?,
-         response_belum_count = ?,
-         response_at = ?,
-         updated_at = ?
-     WHERE id = ?`,
-    [
-      response,
-      nextResponseCount,
-      nextSudah,
-      nextBelum,
-      nowIso,
-      nowIso,
-      visitLog.id,
-    ],
-  );
-  return { allowed, limit, count: currentCount };
-}
-
-async function hasCompletedFinalPostpartumVisit(db, waId) {
-  const row = await dbGet(
-    db,
-    `SELECT id
-     FROM postpartum_visit_logs
-     WHERE wa_id = ?
-       AND visit_code = 'KF4'
-       AND response = 'Sudah'
-     LIMIT 1`,
-    [waId],
-  );
-  return Boolean(row);
-}
-
-async function completeUserAfterFinalPostpartumVisit(db, client, user) {
-  if (!user || user.status === "completed") {
-    return false;
-  }
-  await updateUser(db, user.wa_id, {
-    status: "completed",
-    allow_remindcare: 0,
-  });
-  await sendText(
-    client,
-    user.wa_id,
-    "Selamat, kunjungan KF 4 sudah tercatat. Program bundacare selesai, jadi pengingat tablet FE tidak akan dikirim lagi. Jika ada program atau kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
-  );
-  return true;
 }
 
 // Teks terjadwal di luar poll tidak punya kolom backoff sendiri. Supaya scheduler 30 detik
@@ -5808,154 +4130,6 @@ async function sendReminderText(db, client, user, text, dateKey, now, flow = "re
     console.log("Terkirim", flow, "ke", user.wa_id, "pada", now.toISO());
   }
   return sent;
-}
-
-async function sendPostpartumEducationIfNeeded(db, client, user, now) {
-  if (
-    !isPostpartumMonitoringActive(user) ||
-    user.postpartum_education_sent_at
-  ) {
-    return false;
-  }
-  const sent = await sendReminderText(
-    db,
-    client,
-    user,
-    buildPostpartumEducationMessage(user, now),
-    toDateKey(now),
-    now,
-    "postpartum_education",
-  );
-  if (!sent) {
-    return false;
-  }
-  await updateUser(db, user.wa_id, {
-    postpartum_education_sent_at: now.toISO(),
-  });
-  return true;
-}
-
-async function sendPostpartumVisitReminder(
-  db,
-  client,
-  user,
-  visit,
-  visitLog,
-  now,
-) {
-  if (
-    !canAttemptByBackoff(
-      visitLog && visitLog.last_attempt_at ? visitLog.last_attempt_at : null,
-      visitLog && visitLog.fail_count ? visitLog.fail_count : 0,
-      now,
-    )
-  ) {
-    return false;
-  }
-  if (!takeSendAttempt(user.wa_id, `kf_${visit.code}`, toDateKey(now))) {
-    return false;
-  }
-
-  if (!visitLog || !visitLog.reminder_text_sent_at) {
-    const reminderText = buildPostpartumVisitMessage(user, visit);
-    const textSent = await sendText(client, user.wa_id, reminderText, { kind: "broadcast" });
-    if (textSent) {
-      await markPostpartumVisitTextSent(db, user.wa_id, visit.code);
-    }
-  }
-
-  const poll = new Poll(
-    buildPostpartumVisitQuestion(visit),
-    POSTPARTUM_POLL_OPTIONS,
-    {
-      allowMultipleAnswers: false,
-    },
-  );
-  const message = await sendPoll(client, user.wa_id, poll);
-  if (!sentMessageId(message)) {
-    console.error(
-      "Gagal mengirim polling kunjungan untuk:",
-      user.wa_id,
-      visit.code,
-    );
-    await markPostpartumVisitSendFailed(
-      db,
-      user.wa_id,
-      visit.code,
-      visitLog && visitLog.fail_count ? visitLog.fail_count : 0,
-    );
-    if (isPermanentSendFailure(user.wa_id)) {
-      await updateUser(db, user.wa_id, {
-        allow_remindcare: 0,
-        status: "paused",
-      });
-      console.warn(
-        "Pengingat dihentikan untuk",
-        user.wa_id,
-        ": error pengiriman permanen.",
-      );
-    }
-    return false;
-  }
-
-  noteScheduledSend(user.wa_id, toDateKey(now));
-  await markPostpartumVisitSent(
-    db,
-    user.wa_id,
-    visit.code,
-    sentMessageId(message),
-  );
-  return true;
-}
-
-async function processPostpartumVisitReminders(db, client, user, now) {
-  if (!isPostpartumMonitoringActive(user)) {
-    return;
-  }
-  const deliveryAt = getDeliveryDateTime(user);
-  if (!deliveryAt) {
-    return;
-  }
-
-  await sendPostpartumEducationIfNeeded(db, client, user, now);
-  const logs = await getPostpartumVisitLogs(db, user.wa_id);
-  const logByCode = new Map(logs.map((item) => [item.visit_code, item]));
-
-  for (const visit of POSTPARTUM_VISIT_SCHEDULES) {
-    const dueAt = getPostpartumDueAt(deliveryAt, visit);
-    if (!dueAt) {
-      continue;
-    }
-
-    let log = logByCode.get(visit.code);
-    if (!log) {
-      await ensurePostpartumVisitLog(db, user.wa_id, visit, dueAt);
-      log = {
-        visit_code: visit.code,
-        reminder_text_sent_at: null,
-        sent_at: null,
-        last_attempt_at: null,
-        fail_count: 0,
-      };
-      logByCode.set(visit.code, log);
-    }
-
-    if (log.sent_at || log.response || now < dueAt) {
-      continue;
-    }
-
-    const sent = await sendPostpartumVisitReminder(
-      db,
-      client,
-      user,
-      visit,
-      log,
-      now,
-    );
-    if (sent) {
-      break;
-    }
-  }
 }
 
 // Keputusan pemilik: begitu jam pengingat terisi, user harus benar-benar diingatkan.
@@ -6089,402 +4263,6 @@ async function sendDailyPoll(db, client, user, now, options = {}) {
   return true;
 }
 
-async function sendLaborPhaseMessage(db, client, user, now) {
-  const today = toDateKey(now);
-  if (user.last_labor_phase_message_date === today) {
-    return false;
-  }
-  const phaseMessage = buildLaborPhaseMessage(user, now);
-  if (!phaseMessage) {
-    return false;
-  }
-  const sent = await sendReminderText(
-    db,
-    client,
-    user,
-    phaseMessage,
-    today,
-    now,
-    "labor_phase",
-  );
-  if (!sent) {
-    return false;
-  }
-  await updateUser(db, user.wa_id, { last_labor_phase_message_date: today });
-  return true;
-}
-
-async function sendDeliveryValidationPoll(db, client, user, now, stage) {
-  if (
-    !canAttemptByBackoff(
-      user.delivery_poll_last_attempt_at,
-      user.delivery_poll_fail_count,
-      now,
-    )
-  ) {
-    return false;
-  }
-
-  const today = toDateKey(now);
-  if (!takeSendAttempt(user.wa_id, `delivery_${stage}`, today)) {
-    return false;
-  }
-  const shouldSendIntro =
-    stage !== "week39_daily" &&
-    (user.delivery_poll_intro_stage !== stage ||
-      user.delivery_poll_intro_date !== today);
-  if (shouldSendIntro) {
-    const intro = buildDeliveryValidationMessage(user, now, stage);
-    const introSent = await sendReminderText(
-      db,
-      client,
-      user,
-      intro,
-      today,
-      now,
-      `delivery_intro_${stage}`,
-    );
-    if (introSent) {
-      await updateUser(db, user.wa_id, {
-        delivery_poll_intro_stage: stage,
-        delivery_poll_intro_date: today,
-      });
-    }
-  }
-
-  const poll = new Poll(
-    buildDeliveryValidationQuestion(),
-    DELIVERY_VALIDATION_POLL_OPTIONS,
-    { allowMultipleAnswers: false },
-  );
-  const message = await sendPoll(client, user.wa_id, poll);
-  if (!sentMessageId(message)) {
-    console.error("Gagal mengirim polling validasi lahir untuk:", user.wa_id);
-    const cappedAttempts =
-      Number.isFinite(Number(user.delivery_poll_fail_count)) &&
-      Number(user.delivery_poll_fail_count) >= 0
-        ? Number(user.delivery_poll_fail_count) + 1
-        : 1;
-    await updateUser(db, user.wa_id, {
-      delivery_poll_last_attempt_at: now.toISO(),
-      delivery_poll_fail_count: Math.min(cappedAttempts, MAX_SEND_ATTEMPTS),
-    });
-    if (isPermanentSendFailure(user.wa_id)) {
-      await updateUser(db, user.wa_id, {
-        allow_remindcare: 0,
-        status: "paused",
-      });
-      console.warn(
-        "Pengingat dihentikan untuk",
-        user.wa_id,
-        ": error pengiriman permanen.",
-      );
-    }
-    return false;
-  }
-
-  noteScheduledSend(user.wa_id, today);
-  const updates = {
-    last_delivery_poll_message_id: sentMessageId(message),
-    delivery_poll_stage: stage,
-    delivery_poll_last_attempt_at: now.toISO(),
-    delivery_poll_fail_count: 0,
-  };
-  if (stage === "hpl3") {
-    updates.delivery_hpl3_poll_sent_date = today;
-  } else {
-    updates.delivery_hpl_poll_sent_date = today;
-  }
-  await updateUser(db, user.wa_id, updates);
-  return true;
-}
-
-function buildBelumDeliverySupportMessage() {
-  const lines = [
-    "Terima kasih sudah memberi kabar, Ibu. Tetap semangat ya.",
-    "Tetap tenang dan pantau tanda persalinan seperti kontraksi teratur, keluar lendir bercampur darah, atau ketuban pecah.",
-    "",
-    "Yang sebaiknya dilakukan:",
-    "1. Istirahat cukup dan jaga asupan cairan.",
-    "2. Pantau gerakan janin secara berkala.",
-    "3. Segera ke fasilitas kesehatan bila ada tanda bahaya.",
-    "",
-    `Baca artikel lanjutan di: ${DELIVERY_ARTICLE_URL}`,
-  ];
-  return lines.join("\n");
-}
-
-async function startDeliveryDataCollection(db, client, user) {
-  await clearPostpartumVisitLogs(db, user.wa_id);
-  await updateUser(db, user.wa_id, {
-    delivery_poll_stage: null,
-    last_delivery_poll_message_id: null,
-    delivery_poll_last_attempt_at: null,
-    delivery_poll_fail_count: 0,
-    delivery_poll_intro_stage: null,
-    delivery_poll_intro_date: null,
-    delivery_data_step: 1,
-    delivery_date: null,
-    delivery_date_iso: null,
-    delivery_time: null,
-    delivery_place: null,
-    delivery_birth_attendant: null,
-    delivery_with_complication: null,
-    baby_gender: null,
-    baby_birth_weight: null,
-    mother_current_complaint: null,
-    delivery_data_completed_at: null,
-    postpartum_education_sent_at: null,
-  });
-  await sendText(client, user.wa_id, getQuestionText(DELIVERY_QUESTIONS[0], user));
-}
-
-async function handleDeliveryValidationResponse(
-  db,
-  client,
-  user,
-  response,
-  stageHint = null,
-) {
-  if (response !== "Sudah" && response !== "Belum") {
-    return false;
-  }
-
-  const stage =
-    stageHint ||
-    getPendingDeliveryPollStage(user) ||
-    getDeliveryValidationStageDue(user, nowWib());
-  if (!stage) {
-    return false;
-  }
-  if (
-    (stage === "week39_daily" || stage === "hpl") &&
-    user.delivery_hpl_response === "Sudah"
-  ) {
-    return true;
-  }
-  if (stage === "hpl3" && user.delivery_hpl3_response === "Sudah") {
-    return true;
-  }
-
-  const nowIso = nowWib().toISO();
-  const updates = {
-    delivery_poll_stage: null,
-    last_delivery_poll_message_id: null,
-    delivery_poll_last_attempt_at: null,
-    delivery_poll_fail_count: 0,
-  };
-  if (stage === "hpl3") {
-    updates.delivery_hpl3_response = response;
-    updates.delivery_hpl3_response_at = nowIso;
-  } else if (stage !== "manual") {
-    updates.delivery_hpl_response = response;
-    updates.delivery_hpl_response_at = nowIso;
-  }
-  await updateUser(db, user.wa_id, updates);
-
-  if (response === "Belum") {
-    await sendText(client, user.wa_id, buildBelumDeliverySupportMessage());
-    return true;
-  }
-
-  await sendText(
-    client,
-    user.wa_id,
-    "Terima kasih, Ibu. Selamat atas kelahirannya. Kami lanjutkan pendataan persalinan singkat ya.",
-  );
-  await startDeliveryDataCollection(db, client, user);
-  return true;
-}
-
-async function handleDeliveryDataAnswer(db, client, user, text) {
-  const step = Number(user.delivery_data_step || 0);
-  if (!Number.isFinite(step) || step <= 0) {
-    return false;
-  }
-
-  const question = DELIVERY_QUESTIONS[step - 1];
-  if (!question) {
-    await updateUser(db, user.wa_id, { delivery_data_step: 0 });
-    return false;
-  }
-
-  const raw = text ? text.trim() : "";
-  if (!raw) {
-    await sendText(
-      client,
-      user.wa_id,
-      "Jawaban belum terbaca. Bisa diulang ya?",
-    );
-    return true;
-  }
-
-  const updates = {};
-  if (question.type === "date") {
-    const parsed = parseHpht(raw);
-    if (!parsed.iso) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Format tanggal belum sesuai. Contoh: 31-01-2026.",
-      );
-      return true;
-    }
-    const dateValidation = validateDeliveryDateIso(parsed.iso, user, nowWib());
-    if (!dateValidation.valid) {
-      await sendText(client, user.wa_id, dateValidation.message);
-      return true;
-    }
-    updates.delivery_date = parsed.raw;
-    updates.delivery_date_iso = parsed.iso;
-  } else if (question.type === "time") {
-    const time = normalizeTimeInput(raw);
-    if (!time) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Format jam belum sesuai. Contoh: 14:30.",
-      );
-      return true;
-    }
-    const deliveryDateIso = user.delivery_date_iso || updates.delivery_date_iso;
-    const datetimeValidation = validateDeliveryDateTime(
-      user,
-      deliveryDateIso,
-      time,
-      nowWib(),
-    );
-    if (!datetimeValidation.valid) {
-      await sendText(client, user.wa_id, datetimeValidation.message);
-      return true;
-    }
-    updates.delivery_time = time;
-  } else if (question.type === "yesno") {
-    const yesNo = parseYesNo(raw);
-    if (yesNo === null) {
-      await sendText(client, user.wa_id, "Jawab dengan *ya* atau *tidak* ya.");
-      return true;
-    }
-    updates.delivery_with_complication = yesNo
-      ? "Dengan penyulit"
-      : "Tidak dengan penyulit";
-  } else if (question.type === "weight_gram") {
-    const weight = normalizeBirthWeightGram(raw);
-    if (!weight) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Format berat belum sesuai. Tulis dalam gram, contoh: 3200 gram.",
-      );
-      return true;
-    }
-    updates[question.field] = weight;
-  } else if (question.field === "baby_gender") {
-    const lower = raw.toLowerCase();
-    let gender = null;
-    if (/^(l|laki|laki-laki|cowok|pria|lk)$/.test(lower) || lower.includes("laki")) {
-      gender = "Laki-laki";
-    } else if (/^(p|perempuan|cewek|wanita|pr)$/.test(lower) || lower.includes("perempuan")) {
-      gender = "Perempuan";
-    }
-    if (!gender) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Pilih jenis kelamin bayi: *laki-laki* atau *perempuan* ya.",
-      );
-      return true;
-    }
-    updates.baby_gender = gender;
-  } else {
-    updates[question.field] = raw;
-  }
-
-  const nextStep = step + 1;
-  if (nextStep > DELIVERY_QUESTIONS.length) {
-    updates.delivery_data_step = 0;
-    updates.delivery_data_completed_at = nowWib().toISO();
-    updates.postpartum_education_sent_at = null;
-    await updateUser(db, user.wa_id, updates);
-    await clearPostpartumVisitLogs(db, user.wa_id);
-    await sendText(
-      client,
-      user.wa_id,
-      "Terima kasih, data persalinan sudah dicatat.\nBerikutnya bundacare akan mengingatkan jadwal kunjungan KF/KN sesuai rentang waktunya.\nKalau ada yang perlu diubah, ketik *edit persalinan*.",
-    );
-    await sendPostpartumEducationIfNeeded(
-      db,
-      client,
-      { ...user, ...updates },
-      nowWib(),
-    );
-    return true;
-  }
-
-  await updateUser(db, user.wa_id, {
-    ...updates,
-    delivery_data_step: nextStep,
-  });
-  await sendText(
-    client,
-    user.wa_id,
-    getQuestionText(DELIVERY_QUESTIONS[nextStep - 1], user),
-  );
-  return true;
-}
-
-async function handlePostpartumVisitResponse(
-  db,
-  client,
-  user,
-  visitLog,
-  response,
-) {
-  if (!visitLog || (response !== "Sudah" && response !== "Belum")) {
-    return false;
-  }
-
-  const result = await recordPostpartumVisitResponse(db, visitLog, response);
-  if (!result.allowed) {
-    const visitLabel =
-      visitLog.visit_label || visitLog.visit_code || "kunjungan";
-    const limitText =
-      result.limit === null
-        ? `Jawaban ${visitLabel} sudah tercatat sebelumnya.`
-        : `Jawaban ${response.toLowerCase()} untuk ${visitLabel} sudah mencapai batas ${result.limit}x hari ini.`;
-    await sendText(
-      client,
-      user.wa_id,
-      `${limitText} Tidak perlu kirim ulang ya.`,
-    );
-    return true;
-  }
-
-  const visit = POSTPARTUM_VISIT_BY_CODE.get(visitLog.visit_code) || {
-    label: visitLog.visit_label || visitLog.visit_code,
-  };
-
-  if (response === "Sudah") {
-    await sendText(
-      client,
-      user.wa_id,
-      visitLog.visit_code === "KF4"
-        ? `Terima kasih, jawaban ${visit.label} sudah dicatat.`
-        : `Terima kasih, jawaban ${visit.label} sudah dicatat. Tetap lanjutkan kunjungan berikutnya sesuai jadwal ya.`,
-    );
-    if (visitLog.visit_code === "KF4") {
-      await completeUserAfterFinalPostpartumVisit(db, client, user);
-    }
-  } else {
-    await sendText(
-      client,
-      user.wa_id,
-      `Baik, jawaban ${visit.label} sudah dicatat. Mohon segera lakukan kunjungan ke tenaga kesehatan/fasilitas kesehatan.\nInfo lanjutan: ${DELIVERY_ARTICLE_URL}`,
-    );
-  }
-  return true;
-}
-
 async function handleOnboardingAnswer(db, client, user, text) {
   const step = user.onboarding_step;
   const question = QUESTIONS[step - 1];
@@ -6531,7 +4309,7 @@ async function handleOnboardingAnswer(db, client, user, text) {
       return;
     }
   } else if (question.type === "time") {
-    // Jam pengingat dibatasi jendela kirim; jam melahirkan tidak (itu fakta, bukan jadwal).
+    // Jam pengingat dibatasi jendela kirim.
     if (question.field === "reminder_time") {
       const parsedTime = parseReminderTime(text);
       if (!parsedTime.ok) {
@@ -6656,26 +4434,14 @@ async function handleCommand(db, client, user, text) {
   const isCancelCmd = isCancelCommand(normalized);
   const isDeleteCmd = /^(delete|hapus)$/.test(normalized);
   const isEditDataCmd = isEditDataCommand(normalized);
-  const isEditDeliveryCmd = isEditDeliveryCommand(normalized);
-  const isDeliveryCheckCmd = isDeliveryCheckCommand(normalized);
   const isEditMenuCmd = isEditMenuCommand(normalized);
 
-  if (!isCancelCmd && !isDeleteCmd && !isEditDataCmd && !isEditDeliveryCmd) {
+  if (!isCancelCmd && !isDeleteCmd && !isEditDataCmd) {
     clearPendingConfirmation(user.wa_id);
   }
 
   if (isCancelCmd) {
     const cleared = clearPendingConfirmation(user.wa_id);
-    const deliveryStep = Number(user.delivery_data_step || 0);
-    if (!cleared && Number.isFinite(deliveryStep) && deliveryStep > 0) {
-      await updateUser(db, user.wa_id, { delivery_data_step: 0 });
-      await sendText(
-        client,
-        user.wa_id,
-        "Baik, pendataan persalinan dihentikan. Jawaban yang sudah masuk tetap tersimpan.\nKetik *edit persalinan* kalau mau mengisi ulang dari awal.",
-      );
-      return true;
-    }
     await sendText(
       client,
       user.wa_id,
@@ -6690,14 +4456,13 @@ async function handleCommand(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      `Menu:\n*start* - aktifkan pengingat\n*stop* - hentikan semua pengingat\n*ubah jam 17:00* - ganti jam pengingat\n*info* - ringkasan data dan jadwal pengingat\n*cek persalinan* - tanya status persalinan\n*edit* - daftar perintah edit data\n*koreksi kf1 sudah* - betulkan jawaban kunjungan nifas yang salah ketik\n*batal* - batalkan konfirmasi atau pendataan yang sedang jalan\n*about* - info singkat\n*website* - alamat website\n*delete* - hapus akun`,
+      `Menu:\n*start* - aktifkan pengingat\n*stop* - hentikan semua pengingat\n*ubah jam 17:00* - ganti jam pengingat\n*info* - ringkasan data dan jadwal pengingat\n*edit* - daftar perintah edit data\n*batal* - batalkan konfirmasi atau pendataan yang sedang jalan\n*about* - info singkat\n*website* - alamat website\n*delete* - hapus akun`,
     );
     return true;
   }
 
   if (/^(info|informasi)$/.test(normalized)) {
-    const postpartumLogs = await getPostpartumVisitLogs(db, user.wa_id);
-    const infoText = buildUserInfoMessage(user, postpartumLogs, nowWib());
+    const infoText = buildUserInfoMessage(user);
     await sendText(client, user.wa_id, infoText);
     return true;
   }
@@ -6706,66 +4471,8 @@ async function handleCommand(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      "Perintah edit:\n*edit data* untuk isi ulang semua data dari awal.\n*edit persalinan* untuk isi ulang data persalinan.\n\nPerintah persalinan:\n*cek persalinan* untuk konfirmasi apakah Ibu sudah melahirkan.",
+      "Perintah edit:\n*edit data* untuk isi ulang semua data dari awal.",
     );
-    return true;
-  }
-
-  if (isDeliveryCheckCmd) {
-    if (!user.hpht_iso) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Data kehamilan belum lengkap. Lengkapi dulu ya, lalu nanti cek lagi status persalinannya.",
-      );
-      return true;
-    }
-
-    const deliveryStep = Number(user.delivery_data_step || 0);
-    if (Number.isFinite(deliveryStep) && deliveryStep > 0) {
-      const currentQuestion = DELIVERY_QUESTIONS[deliveryStep - 1];
-      await sendText(
-        client,
-        user.wa_id,
-        currentQuestion
-          ? `Data persalinan sedang diisi. Lanjutkan dari pertanyaan ini ya:\n${currentQuestion.text}`
-          : "Data persalinan sedang diisi. Lanjutkan jawaban berikutnya ya.",
-      );
-      return true;
-    }
-
-    if (isPostpartumMonitoringActive(user)) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Data persalinan sudah tercatat. Jika ada perubahan, ketik *edit persalinan* untuk isi ulang dari awal.",
-      );
-      return true;
-    }
-
-    if (hasAnyDeliveryRecord(user)) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Data persalinan sudah pernah tercatat sebagian. Jika mau isi ulang, ketik *edit persalinan*.",
-      );
-      return true;
-    }
-
-    const sent = await sendDeliveryValidationPoll(
-      db,
-      client,
-      user,
-      nowWib(),
-      "manual",
-    );
-    if (!sent) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Pertanyaan persalinan belum berhasil dikirim. Coba lagi sebentar ya.",
-      );
-    }
     return true;
   }
 
@@ -6775,7 +4482,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        "Perintah ini akan mengosongkan jawaban profil, kehamilan, dan persalinan lalu mulai dari pertanyaan pertama.\nKetik *edit data* sekali lagi dalam 5 menit untuk lanjut, atau ketik *batal*.",
+        "Perintah ini akan mengosongkan jawaban profil lalu mulai dari pertanyaan pertama.\nKetik *edit data* sekali lagi dalam 5 menit untuk lanjut, atau ketik *batal*.",
       );
       return true;
     }
@@ -6787,34 +4494,6 @@ async function handleCommand(db, client, user, text) {
       "Baik, data direset. Kita isi ulang dari awal ya.",
     );
     await sendText(client, user.wa_id, getQuestionText(QUESTIONS[0], user));
-    return true;
-  }
-
-  if (isEditDeliveryCmd) {
-    if (!hasAnyDeliveryRecord(user)) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Data persalinan belum ada untuk diedit. Nanti setelah ada konfirmasi melahirkan, data persalinan bisa diisi.",
-      );
-      return true;
-    }
-    const confirmed = checkEditConfirmation(user.wa_id, "delivery");
-    if (!confirmed) {
-      await sendText(
-        client,
-        user.wa_id,
-        "Perintah ini akan mengosongkan data persalinan dan jadwal kunjungan nifas yang sudah dibuat.\nKetik *edit persalinan* sekali lagi dalam 5 menit untuk lanjut, atau ketik *batal*.",
-      );
-      return true;
-    }
-    clearPendingConfirmation(user.wa_id);
-    await sendText(
-      client,
-      user.wa_id,
-      "Baik, kita isi ulang data persalinan dari awal.",
-    );
-    await startDeliveryDataCollection(db, client, user);
     return true;
   }
 
@@ -6838,7 +4517,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        "Perintah ini menghapus data profil, kehamilan, persalinan, dan seluruh riwayat jawaban Ibu secara permanen dan tidak bisa dikembalikan.\nKetik *delete* sekali lagi dalam 5 menit untuk lanjut, atau ketik *batal*.",
+        "Perintah ini menghapus data profil dan seluruh riwayat jawaban Ibu secara permanen dan tidak bisa dikembalikan.\nKetik *delete* sekali lagi dalam 5 menit untuk lanjut, atau ketik *batal*.",
       );
       return true;
     }
@@ -6857,7 +4536,7 @@ async function handleCommand(db, client, user, text) {
     await sendText(
       client,
       user.wa_id,
-      "Oke, semua pengingat dihentikan dulu. Ini termasuk pengingat tablet FE, validasi persalinan, kunjungan nifas.\nKetik *start* kapan saja kalau mau aktif lagi. \u23f8\ufe0f",
+      "Oke, semua pengingat dihentikan dulu.\nKetik *start* kapan saja kalau mau aktif lagi. \u23f8\ufe0f",
     );
     return true;
   }
@@ -6867,7 +4546,7 @@ async function handleCommand(db, client, user, text) {
       await sendText(
         client,
         user.wa_id,
-        "Program bundacare untuk kehamilan ini sudah selesai, jadi pengingatnya tidak diaktifkan lagi.\nKalau ada kehamilan baru, ketik *edit data* untuk isi ulang dari awal.",
+        "Program bundacare sudah selesai, jadi pengingatnya tidak diaktifkan lagi.\nKalau mau mulai lagi, ketik *edit data* untuk isi ulang dari awal.",
       );
       return true;
     }
@@ -7095,7 +4774,7 @@ async function handleMessage(db, client, msg) {
     await sendText(
       client,
       waId,
-      "Halo! 👋\nAku bundacare, pengingat untuk menemani perjalanan ibu dari kehamilan, persalinan, masa nifas, hingga perawatan bayi. 🤍\n\nUntuk mulai, ketik *start* ya. ✨",
+      "Halo! 👋\nAku bundacare, pengingat tablet tambah darah (FE) harian. 🤍\n\nUntuk mulai, ketik *start* ya. ✨",
     );
     return;
   }
@@ -7168,11 +4847,6 @@ async function handleMessage(db, client, msg) {
     return;
   }
 
-  const correction = parsePostpartumCorrection(text);
-  if (correction && (await applyPostpartumCorrection(db, client, user, correction))) {
-    return;
-  }
-
   if (await handleCommand(db, client, user, text)) {
     return;
   }
@@ -7181,64 +4855,17 @@ async function handleMessage(db, client, msg) {
     await sendText(
       client,
       waId,
-      `Halo, ${getDisplayName(user)}. Aku bundacare, pengingat tablet FE, persalinan, dan kunjungan nifas. Ketik *menu* untuk lihat perintah yang tersedia.`,
+      `Halo, ${getDisplayName(user)}. Aku bundacare, pengingat tablet FE. Ketik *menu* untuk lihat perintah yang tersedia.`,
     );
     return;
   }
-
-  if (Number(user.delivery_data_step || 0) > 0) {
-    await handleDeliveryDataAnswer(db, client, user, text);
-    return;
-  }
-
-  const deliveryValidationAnswer = parseDeliveryValidationAnswer(text);
-  const pendingDeliveryStage = getPendingDeliveryPollStage(user);
-  if (deliveryValidationAnswer && pendingDeliveryStage) {
-    await handleDeliveryValidationResponse(
-      db,
-      client,
-      user,
-      deliveryValidationAnswer,
-      pendingDeliveryStage,
-    );
-    return;
-  }
-
 
   const pollAnswer = parsePollAnswer(text);
   if (pollAnswer) {
     const today = toDateKey(nowWib());
     const feAnsweredToday = user.last_reminder_date === today;
-    const pendingPostpartumLog = await getLatestPendingPostpartumVisitLog(
-      db,
-      waId,
-    );
-    // Satu kata sudah atau belum bisa cocok untuk beberapa pertanyaan yang masih terbuka.
-    // Aturan yang dipakai: pertanyaan yang belum dijawab menang atas pengingat tablet FE
-    // yang sudah dikirim hari ini, supaya jawaban kunjungan nifas tidak tercatat sebagai
-    // jawaban tablet FE.
-    if (feAnsweredToday && pendingPostpartumLog) {
-      await handlePostpartumVisitResponse(
-        db,
-        client,
-        user,
-        pendingPostpartumLog,
-        pollAnswer,
-      );
-      return;
-    }
     if (feAnsweredToday) {
       await handleDailyResponse(db, client, user, pollAnswer);
-      return;
-    }
-    if (pendingPostpartumLog) {
-      await handlePostpartumVisitResponse(
-        db,
-        client,
-        user,
-        pendingPostpartumLog,
-        pollAnswer,
-      );
       return;
     }
 
@@ -7250,10 +4877,11 @@ async function handleMessage(db, client, msg) {
     return;
   }
 
-  const fallbackText = isPostpartumMonitoringActive(user)
-    ? "Aku belum paham pesan itu. Untuk lihat status kunjungan nifas, ketik *info* atau *menu*."
-    : "Aku belum paham pesan itu. Untuk lihat jadwal dan status pengingat, ketik *info* atau *menu*.";
-  await sendText(client, waId, fallbackText);
+  await sendText(
+    client,
+    waId,
+    "Aku belum paham pesan itu. Untuk lihat jadwal dan status pengingat, ketik *info* atau *menu*.",
+  );
 }
 
 // Ambil jawaban ("Sudah"/"Belum") dari sebuah objek vote, dari bentuk apa pun yang
@@ -7527,66 +5155,11 @@ async function handleVoteUpdate(db, client, vote) {
     return extractStanza(savedId) === extractStanza(candidateId);
   };
 
-  // 1. Validasi persalinan
-  const pendingDeliveryStage = getPendingDeliveryPollStage(user);
-  const isDeliveryPoll =
-    isMatchingId(user.last_delivery_poll_message_id, pollMessageId) ||
-    (!pollMessageId && pendingDeliveryStage);
-
-  if (isDeliveryPoll && pendingDeliveryStage) {
-    await handleDeliveryValidationResponse(
-      db,
-      client,
-      user,
-      response,
-      pendingDeliveryStage,
-    );
-    return;
-  }
-
-  // 2. Kunjungan nifas
-  let postpartumLog = null;
-  if (pollMessageId) {
-    postpartumLog = await getPostpartumVisitLogByPollMessageId(
-      db,
-      effectiveWaId,
-      pollMessageId,
-    );
-    if (!postpartumLog) {
-      const stanzaId = String(pollMessageId).split("_").pop();
-      const row = await dbGet(
-        db,
-        `SELECT * FROM postpartum_visit_logs
-         WHERE wa_id = ? AND poll_message_id LIKE ?
-         ORDER BY id DESC LIMIT 1`,
-        [effectiveWaId, `%_${stanzaId}`],
-      );
-      if (row) postpartumLog = row;
-    }
-  }
-  if (!postpartumLog && isPostpartumMonitoringActive(user)) {
-    postpartumLog = await getLatestPendingPostpartumVisitLog(
-      db,
-      effectiveWaId,
-    );
-  }
-
-  if (postpartumLog) {
-    await handlePostpartumVisitResponse(
-      db,
-      client,
-      user,
-      postpartumLog,
-      response,
-    );
-    return;
-  }
-
-  // 3. Pengingat FE harian
+  // Pengingat FE harian
   const today = toDateKey(nowWib());
   const isFePoll =
     isMatchingId(user.last_poll_message_id, pollMessageId) ||
-    (!isDeliveryPoll && user.last_reminder_date === today);
+    user.last_reminder_date === today;
 
   if (isFePoll) {
     await handleDailyResponse(db, client, user, response);
@@ -7622,9 +5195,8 @@ function isPermanentSendFailure(waId) {
   return Boolean(info && info.permanent);
 }
 
-// Kuota pengiriman terjadwal per user per hari. Pada fase transisi (hamil tua, persalinan,
-// nifas) satu user bisa menerima beberapa pesan dalam jendela yang sama, dan lonjakan ke
-// satu orang mudah dilaporkan sebagai spam.
+// Kuota pengiriman terjadwal per user per hari. Lonjakan ke satu orang mudah
+// dilaporkan sebagai spam.
 const scheduledSendCount = new Map();
 
 function noteScheduledSend(waId, dateKey) {
@@ -7703,39 +5275,6 @@ async function processUserReminderTick(db, client, user, now, today) {
   const quotaReached = () => isOverDailyMessageQuota(user, today);
 
   const canSendMainReminder = shouldSendNow(user.reminder_time, now);
-  // Jendela pra-pengingat (2 jam sebelum jam pengingat) dipakai untuk mengirim pengingat
-  // kunjungan nifas dan validasi persalinan lebih dulu sebelum pengingat harian. Kalau jam
-  // pengingat tepat di awal jam kerja (mis. 03:00 pada jam kerja 03:00-23:59), jendela
-  // pra-nya jatuh di luar jam kerja sehingga pengingat bantu itu tidak pernah terkirim.
-  // Karena itu pengingat bantu juga dibuka begitu pengingat harian sudah jatuh tempo.
-  const inPreReminderWindow = isReminderAssistWindow(user.reminder_time, now);
-  const postpartumActive = isPostpartumMonitoringActive(user);
-  const deliveryConfirmed = hasConfirmedDelivery(user);
-  const collectingDeliveryData =
-    Number.isFinite(Number(user.delivery_data_step)) &&
-    Number(user.delivery_data_step) > 0;
-  if (
-    postpartumActive &&
-    (await hasCompletedFinalPostpartumVisit(db, user.wa_id))
-  ) {
-    await completeUserAfterFinalPostpartumVisit(db, client, user);
-    return;
-  }
-
-  if (postpartumActive && inPreReminderWindow && !quotaReached()) {
-    await processPostpartumVisitReminders(db, client, user, now);
-  }
-
-  const deliveryStage = getDeliveryValidationStageDue(user, now);
-  if (
-    inPreReminderWindow &&
-    deliveryStage &&
-    user.last_reminder_date !== today &&
-    !quotaReached()
-  ) {
-    await sendDeliveryValidationPoll(db, client, user, now, deliveryStage);
-  }
-
 
   if (!canSendMainReminder) {
     return;
@@ -7756,72 +5295,11 @@ async function processUserReminderTick(db, client, user, now, today) {
     return;
   }
 
-  const deliveryAt = getDeliveryDateTime(user);
-  const daysSinceDelivery = deliveryAt
-    ? Math.floor(now.startOf("day").diff(deliveryAt.startOf("day"), "days").days)
-    : null;
-  if (
-    deliveryConfirmed &&
-    !collectingDeliveryData &&
-    daysSinceDelivery !== null &&
-    daysSinceDelivery > 42
-  ) {
-    await updateUser(db, user.wa_id, {
-      status: "completed",
-      allow_remindcare: 0,
-    });
-    await sendText(
-      client,
-      user.wa_id,
-      "Masa pemantauan nifas 42 hari sudah selesai. Program bundacare untuk kehamilan ini telah tuntas. Terima kasih sudah merawat diri dan buah hati bersama kami. 🤍👶",
-    );
-    return;
-  }
-
-  if (
-    !isPregnancyActive(user, now) &&
-    !postpartumActive &&
-    deliveryConfirmed &&
-    !collectingDeliveryData
-  ) {
-    await updateUser(db, user.wa_id, {
-      status: "completed",
-      allow_remindcare: 0,
-    });
-    await sendText(
-      client,
-      user.wa_id,
-      "Masa pengingat kehamilan sudah selesai. Jika ingin lanjut, balas start.",
-    );
-    return;
-  }
-
-  if (
-    !isPregnancyActive(user, now) &&
-    !postpartumActive &&
-    !deliveryConfirmed &&
-    !collectingDeliveryData
-  ) {
-    const gestationalWeek = getGestationalWeek(user, now);
-    if (gestationalWeek && gestationalWeek > 42) {
-      sendAlert(
-        "kehamilan-lewat-waktu",
-        `Pasien ${user.wa_id} (${user.name || "tanpa nama"}) usia kehamilan minggu ke-${gestationalWeek} belum konfirmasi persalinan.`,
-      );
-    }
-  }
-
-  await sendLaborPhaseMessage(db, client, user, now);
-
-  const deliveryValidationActive = isDeliveryValidationActive(user, now);
-
   if (user.last_reminder_date === today) {
     return;
   }
 
-  await sendDailyPoll(db, client, user, now, {
-    skipReminderText: deliveryValidationActive,
-  });
+  await sendDailyPoll(db, client, user, now);
 }
 
 const ONBOARDING_NUDGE_AFTER_HOURS = 24;
@@ -8126,7 +5604,6 @@ async function applyAdminUserAction(db, user, action, value) {
   if (action === "clear_send_failures") {
     await updateUser(db, user.wa_id, {
       fe_poll_fail_count: 0,
-      delivery_poll_fail_count: 0,
     });
     return { ok: true, action };
   }
@@ -9004,23 +6481,6 @@ async function startAdminServer(db) {
           res.status(404).json({ error: "not_found" });
           return;
         }
-        const postpartumSnapshot = buildPostpartumSnapshot(
-          detail.postpartum_logs || [],
-        );
-        const deliverySnapshot = {
-          delivery_hpl_response: detail.user.delivery_hpl_response,
-          delivery_hpl3_response: detail.user.delivery_hpl3_response,
-          delivery_date:
-            detail.user.delivery_date_iso || detail.user.delivery_date,
-          delivery_time: detail.user.delivery_time,
-          delivery_place: detail.user.delivery_place,
-          delivery_birth_attendant: detail.user.delivery_birth_attendant,
-          delivery_with_complication: detail.user.delivery_with_complication,
-          baby_gender: detail.user.baby_gender,
-          baby_birth_weight: detail.user.baby_birth_weight,
-          mother_current_complaint: detail.user.mother_current_complaint,
-          delivery_data_completed_at: detail.user.delivery_data_completed_at,
-        };
         const logs =
           detail.logs && detail.logs.length > 0
             ? detail.logs
@@ -9033,53 +6493,12 @@ async function startAdminServer(db) {
                   created_at: null,
                 },
               ];
-        const rows = logs.map((log) => ({
-          ...log,
-          ...deliverySnapshot,
-          ...postpartumSnapshot,
-        }));
-        const csv = buildCsv(rows, [
+        const csv = buildCsv(logs, [
           { key: "reminder_date", label: "reminder_date" },
           { key: "response", label: "response" },
           { key: "response_sudah_count", label: "response_sudah_count" },
           { key: "response_belum_count", label: "response_belum_count" },
           { key: "created_at", label: "created_at" },
-          { key: "delivery_hpl_response", label: "delivery_hpl_response" },
-          { key: "delivery_hpl3_response", label: "delivery_hpl3_response" },
-          { key: "delivery_date", label: "delivery_date" },
-          { key: "delivery_time", label: "delivery_time" },
-          { key: "delivery_place", label: "delivery_place" },
-          {
-            key: "delivery_birth_attendant",
-            label: "delivery_birth_attendant",
-          },
-          {
-            key: "delivery_with_complication",
-            label: "delivery_with_complication",
-          },
-          { key: "baby_gender", label: "baby_gender" },
-          { key: "baby_birth_weight", label: "baby_birth_weight" },
-          {
-            key: "mother_current_complaint",
-            label: "mother_current_complaint",
-          },
-          {
-            key: "delivery_data_completed_at",
-            label: "delivery_data_completed_at",
-          },
-          { key: "postpartum_total", label: "postpartum_total" },
-          { key: "postpartum_sent", label: "postpartum_sent" },
-          { key: "postpartum_sudah", label: "postpartum_sudah" },
-          { key: "postpartum_belum", label: "postpartum_belum" },
-          { key: "postpartum_pending", label: "postpartum_pending" },
-          { key: "kfkn1_confirmed_at", label: "kfkn1_confirmed_at" },
-          { key: "kfkn2_confirmed_at", label: "kfkn2_confirmed_at" },
-          { key: "kfkn3_confirmed_at", label: "kfkn3_confirmed_at" },
-          { key: "kf4_confirmed_at", label: "kf4_confirmed_at" },
-          {
-            key: "postpartum_last_confirmed_at",
-            label: "postpartum_last_confirmed_at",
-          },
         ]);
         res.setHeader("Content-Type", "text/csv; charset=utf-8");
         res.setHeader(
@@ -9116,27 +6535,6 @@ async function startAdminServer(db) {
         { key: "last_response", label: "last_response" },
         { key: "total_sudah", label: "total_sudah" },
         { key: "total_belum", label: "total_belum" },
-        { key: "delivery_hpl_response", label: "delivery_hpl_response" },
-        { key: "delivery_hpl3_response", label: "delivery_hpl3_response" },
-        { key: "delivery_date_iso", label: "delivery_date_iso" },
-        { key: "delivery_time", label: "delivery_time" },
-        { key: "delivery_place", label: "delivery_place" },
-        { key: "delivery_birth_attendant", label: "delivery_birth_attendant" },
-        {
-          key: "delivery_with_complication",
-          label: "delivery_with_complication",
-        },
-        { key: "baby_gender", label: "baby_gender" },
-        { key: "baby_birth_weight", label: "baby_birth_weight" },
-        { key: "mother_current_complaint", label: "mother_current_complaint" },
-        {
-          key: "delivery_data_completed_at",
-          label: "delivery_data_completed_at",
-        },
-        { key: "postpartum_total", label: "postpartum_total" },
-        { key: "postpartum_sent", label: "postpartum_sent" },
-        { key: "postpartum_sudah", label: "postpartum_sudah" },
-        { key: "postpartum_belum", label: "postpartum_belum" },
       ]);
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="users.csv"');
@@ -9185,70 +6583,6 @@ async function startAdminServer(db) {
     },
   );
 
-  app.get(
-    "/admin/api/export/postpartum_logs.csv",
-    requireAdmin,
-    async (req, res) => {
-      try {
-        const logs = await dbAll(
-          db,
-          `SELECT
-            wa_id,
-            visit_code,
-            visit_kind,
-            visit_label,
-            window_text,
-            benefit_text,
-            due_at,
-            reminder_text_sent_at,
-            sent_at,
-            poll_message_id,
-            last_attempt_at,
-            fail_count,
-            response,
-            response_count,
-            response_sudah_count,
-            response_belum_count,
-            response_at,
-            created_at,
-            updated_at
-           FROM postpartum_visit_logs
-           ORDER BY due_at DESC, id DESC`,
-        );
-        const csv = buildCsv(logs, [
-          { key: "wa_id", label: "wa_id" },
-          { key: "visit_code", label: "visit_code" },
-          { key: "visit_kind", label: "visit_kind" },
-          { key: "visit_label", label: "visit_label" },
-          { key: "window_text", label: "window_text" },
-          { key: "benefit_text", label: "benefit_text" },
-          { key: "due_at", label: "due_at" },
-          { key: "reminder_text_sent_at", label: "reminder_text_sent_at" },
-          { key: "sent_at", label: "sent_at" },
-          { key: "poll_message_id", label: "poll_message_id" },
-          { key: "last_attempt_at", label: "last_attempt_at" },
-          { key: "fail_count", label: "fail_count" },
-          { key: "response", label: "response" },
-          { key: "response_count", label: "response_count" },
-          { key: "response_sudah_count", label: "response_sudah_count" },
-          { key: "response_belum_count", label: "response_belum_count" },
-          { key: "response_at", label: "response_at" },
-          { key: "created_at", label: "created_at" },
-          { key: "updated_at", label: "updated_at" },
-        ]);
-        res.setHeader("Content-Type", "text/csv; charset=utf-8");
-        res.setHeader(
-          "Content-Disposition",
-          'attachment; filename="postpartum_visit_logs.csv"',
-        );
-        res.send(csv);
-      } catch (err) {
-        console.error("Gagal export postpartum log:", err);
-        res.status(500).json({ error: "failed" });
-      }
-    },
-  );
-
   const passwordWatch = setInterval(() => {
     refreshPasswordEpoch(db).catch((err) => {
       console.error("Gagal memeriksa hash password admin:", err.message);
@@ -9284,8 +6618,6 @@ async function startAdminServer(db) {
 // Nilai env angka yang salah tulis pernah mematikan kontrol keamanan secara senyap
 // (NaN membuat rate limit dianggap nonaktif). Sekarang bot menolak start.
 const NUMERIC_ENV_KEYS = [
-  "PREGNANCY_WEEKS_LIMIT",
-  "DELIVERY_VALIDATION_START_WEEK",
   "REMINDER_LOG_RETENTION_DAYS",
   "REMINDER_STALE_AFTER_MINUTES",
   "MAX_SEND_ATTEMPTS",
@@ -9681,15 +7013,8 @@ module.exports = {
   envNumber,
   parseYesNo,
   normalizeTimeInput,
-  parseHpht,
   shouldSendNow,
-  shouldSendBeforeReminder,
-  isReminderAssistWindow,
   shouldSkipToday,
-  getHplDate,
-  getDeliveryValidationStageDue,
-  buildLaborPhaseMessage,
-  parseDeliveryValidationAnswer,
   stripTrailingPunctuation,
   reminderSchedulePhrase,
   serializeAllowlistPanel,
@@ -9702,15 +7027,8 @@ module.exports = {
   pruneAdminLoginAttempts,
   isLiveInstancePid,
   csvEscape,
-  getDeliveryDateTime,
-  getPostpartumDueAt,
-  buildPostpartumSnapshot,
-  buildPostpartumVisitQuestion,
   getRetryDelayMs,
   canAttemptByBackoff,
-  validateDeliveryDateIso,
-  validateDeliveryDateTime,
-  isDeliveryCheckCommand,
   escapeForScriptContext,
   validateEnv,
   takeSendAttempt,
@@ -9783,7 +7101,6 @@ module.exports = {
   __reconcilePollVotesForTest: reconcilePollVotes,
   extractPollResponse,
   __handleAdminCommandForTest: handleAdminCommand,
-  normalizeBirthWeightGram,
   __setSendReadyForTest: (value) => {
     clientReady = Boolean(value);
     sendGuard.setReady(Boolean(value));
@@ -9791,6 +7108,4 @@ module.exports = {
   reconcileRunnableUsers,
   buildNeedsAction,
   isReminderControlCommand,
-  parsePostpartumCorrection,
-  resolveVisitCode,
 };

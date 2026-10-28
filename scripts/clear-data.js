@@ -22,7 +22,6 @@ const DATA_TABLES = [
   "users",
   "user_aliases",
   "reminder_logs",
-  "postpartum_visit_logs",
   "registrations",
   "registration_decoys",
   "registration_activation_log",

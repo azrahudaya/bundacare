@@ -1,13 +1,10 @@
-﻿PROJECT OVERVIEW - REMINDCARE WHATSAPP BOT
+﻿PROJECT OVERVIEW - BUNDACARE WHATSAPP BOT
 
 Ringkasan
-bundacare adalah bot WhatsApp berbasis Node.js untuk mendampingi ibu hamil.
-Fokus utamanya adalah pengingat konsumsi tablet FE harian, pencatatan jawaban
-"Sudah" atau "Belum", edukasi menjelang persalinan, validasi apakah user sudah
-melahirkan, pendataan persalinan, serta reminder kunjungan masa nifas dan
-neonatal.
-pagi. Project juga menyediakan dashboard admin web untuk melihat data user, log
-reminder, log kunjungan, dan export CSV.
+bundacare adalah bot WhatsApp berbasis Node.js yang mengingatkan ibu hamil
+minum tablet tambah darah (FE) setiap hari. Bot mencatat jawaban "Sudah" atau
+"Belum", dan menyediakan dashboard admin web untuk melihat data user, log
+pengingat, serta export CSV.
 
 Tech Stack
 - Runtime: Node.js
@@ -19,14 +16,14 @@ Tech Stack
 
 Struktur Project
 - index.js
-  File utama. Berisi konfigurasi, daftar pertanyaan onboarding, daftar jadwal
-  kunjungan postpartum, helper parsing/validasi, akses database, handler pesan
-  WhatsApp, handler poll, loop scheduler, command admin WhatsApp, dan admin web.
+  File utama. Berisi konfigurasi, daftar pertanyaan onboarding, helper
+  parsing/validasi, akses database, handler pesan WhatsApp, handler poll, loop
+  scheduler, command admin WhatsApp, dan admin web.
 - package.json
   Script utama: npm start dan npm test.
-- tests/parse.test.js
-  Unit test untuk parsing, validasi waktu/tanggal, hitung HPL, validasi
-  persalinan, postpartum, retry backoff, dan command persalinan.
+- tests/
+  Unit test untuk parsing, validasi waktu, retry backoff, alur reminder,
+  pencatatan vote poll, jendela kirim, dan panel admin.
 - data/bundacare.db
   Database SQLite runtime. File ini dibuat/dipakai saat aplikasi berjalan.
 - data/admin_web_password.txt
@@ -35,9 +32,10 @@ Struktur Project
 - .wwebjs_auth dan .wwebjs_cache
   Data session/cache WhatsApp Web lokal.
 - daftar-fitur-flow-trigger.txt
-  Dokumentasi fitur, trigger, dan flow yang sudah ada sebelumnya.
+  Dokumentasi fitur, trigger, dan flow.
 - data backup/bundacare.db
   Backup database.
+
 Cara Menjalankan
 1. Install dependency:
    npm install
@@ -51,41 +49,31 @@ Script
 - npm start
   Menjalankan index.js.
 - npm test
-  Menjalankan tests/parse.test.js.
+  Menjalankan seluruh tes di folder tests/.
 
 Flow Runtime Utama
 1. Aplikasi start.
 2. Folder data dipastikan ada.
 3. Database SQLite dibuka di data/bundacare.db.
-4. Tabel dan kolom database dibuat/migrasi otomatis.
+4. Tabel dan kolom database dibuat/dimigrasi otomatis.
 5. Admin web Express dijalankan jika ADMIN_WEB_ENABLED tidak bernilai 0/false.
 6. Client WhatsApp Web dibuat dengan LocalAuth.
 7. Jika session belum ada, QR ditampilkan di terminal.
 8. Saat WhatsApp ready, bot mulai menerima pesan dan vote poll.
 9. Scheduler reminder berjalan setiap 30 detik.
 10. Scheduler mengambil user aktif, allowed, tidak blocked, punya reminder_time,
-    lalu memproses reminder FE, validasi persalinan, dan kunjungan postpartum.
+    lalu mengirim pengingat tablet FE harian.
 
 Database
 1. users
-   Menyimpan profil user, status onboarding/active/paused/completed, HPHT,
-   pengaturan reminder, flag admin/allowed/blocked, state poll FE, state poll
-   persalinan, data persalinan, dan timestamp edukasi postpartum.
+   Menyimpan profil user, status onboarding/active/paused/completed, pengaturan
+   reminder, flag admin/allowed/blocked, dan state poll FE.
 
 2. reminder_logs
-   Menyimpan log harian reminder FE per user dan tanggal. Jawaban dicatat
+   Menyimpan log harian pengingat FE per user dan tanggal. Jawaban dicatat
    sebagai "Sudah" atau "Belum", termasuk counter masing-masing jawaban.
 
-3. postpartum_visit_logs
-   Menyimpan jadwal dan status reminder kunjungan postpartum/neonatal per user:
-   kode kunjungan, due_at, status pengiriman teks/poll, poll_message_id,
-   retry state, jawaban, counter jawaban, dan waktu respon.
-
 Konfigurasi Environment Penting
-- PREGNANCY_WEEKS_LIMIT
-  Batas masa reminder kehamilan. Default 42 minggu.
-- DELIVERY_VALIDATION_START_WEEK
-  Minggu awal validasi persalinan otomatis. Default 39.
 - ENFORCE_ALLOWLIST
   Jika true/1, nomor user harus ada di allowlist atau admin.
 - ADMIN_WA_IDS
@@ -146,12 +134,11 @@ Pertanyaan Onboarding
 1. Nama ibu.
 2. Usia.
 3. Kehamilan ke berapa.
-4. HPHT dengan format tanggal valid.
-5. Apakah rutin mengonsumsi obat.
-6. Apakah masih mengonsumsi teh.
-7. Siapa yang biasanya mengingatkan minum obat.
-8. Apakah mau diingatkan bundacare.
-9. Jam reminder harian.
+4. Apakah rutin mengonsumsi obat.
+5. Apakah masih mengonsumsi teh.
+6. Siapa yang biasanya mengingatkan minum obat.
+7. Apakah mau diingatkan bundacare.
+8. Jam reminder harian.
 
 Flow Pesan Pembuka
 Trigger:
@@ -167,20 +154,23 @@ Trigger:
 - Scheduler 30 detik.
 - User status active, allow_remindcare=1, tidak blocked, punya reminder_time.
 - Waktu sekarang sudah mencapai reminder_time.
-- Poll hari ini belum terkirim.
+- Pengingat hari ini belum dikirim.
 
 Alur:
-1. Bot mengirim teks reminder harian.
+1. Bot mengirim teks pengingat harian (sekali per hari).
 2. Bot mengirim poll "Sudah minum tablet FE hari ini?".
 3. Bot menyimpan last_reminder_date dan last_poll_message_id.
 4. Bot membuat/ensure reminder_logs untuk tanggal tersebut.
-5. Jika pengiriman poll gagal, fail_count dan last_attempt_at diupdate untuk
+5. Setelah hari program melewati poll_days_limit (default 14), hari ganjil hanya
+   mengirim teks tanpa poll.
+6. Jika pengiriman poll gagal, fail_count dan last_attempt_at diupdate untuk
    retry dengan exponential backoff.
 
 Flow Jawaban Reminder FE
 Trigger:
 - User membalas teks yang bisa diparse sebagai "Sudah" atau "Belum".
 - Atau user vote pada poll FE aktif.
+- Vote yang terlewat (bot sempat mati) dipulihkan lewat rekonsiliasi tiap 5 menit.
 
 Alur:
 1. Bot memastikan poll/log hari ini relevan.
@@ -190,112 +180,6 @@ Alur:
    mengirim ulang.
 5. Jika jawaban "Sudah", bot mengirim terima kasih.
 6. Jika jawaban "Belum", bot mengingatkan untuk minum tablet.
-
-Flow Edukasi Fase Persalinan
-Trigger:
-- Scheduler harian saat user berada di usia kehamilan minggu 37 sampai 41.
-- Pesan fase persalinan belum dikirim pada hari tersebut.
-- User belum terkonfirmasi sudah melahirkan.
-
-Alur:
-1. Bot menghitung usia kehamilan dari HPHT.
-2. Bot memilih pesan edukasi sesuai minggu.
-3. Pada minggu 40, pesan menyertakan HPL.
-4. Bot menyimpan last_labor_phase_message_date.
-
-Flow Validasi Persalinan
-Trigger otomatis:
-- Usia kehamilan >= DELIVERY_VALIDATION_START_WEEK, default minggu 39.
-- User belum terkonfirmasi sudah melahirkan.
-- Waktu sekarang masuk window 2 jam sebelum reminder_time.
-- Poll validasi hari itu belum dikirim.
-
-Trigger manual:
-- User mengirim cek persalinan, konfirmasi persalinan, atau persalinan.
-
-Alur:
-1. Bot mengirim poll "Apakah Ibu sudah melahirkan?".
-2. Bot menyimpan last_delivery_poll_message_id dan delivery_poll_stage.
-3. Jawaban "Belum" dicatat dan bot mengirim pesan dukungan/tanda bahaya.
-4. Jawaban "Sudah" memulai pendataan persalinan bertahap.
-
-Flow Pendataan Persalinan
-Trigger:
-- User menjawab "Sudah" pada validasi persalinan.
-- Atau user mengulang melalui edit persalinan jika data persalinan sudah ada.
-
-Pertanyaan:
-1. Tanggal melahirkan.
-2. Jam melahirkan.
-3. Tempat melahirkan.
-4. Penolong persalinan.
-5. Apakah persalinan dengan penyulit.
-6. Jenis kelamin bayi.
-7. Berat badan bayi saat lahir dalam gram.
-8. Keluhan ibu saat ini.
-
-Validasi:
-- Tanggal harus valid.
-- Tanggal tidak boleh sebelum HPHT.
-- Tanggal tidak boleh di masa depan.
-- Jam harus format valid 24 jam.
-- Kombinasi tanggal dan jam tidak boleh di masa depan.
-- Pertanyaan ya/tidak harus bisa diparse.
-- Berat bayi harus valid dalam gram.
-
-Alur selesai:
-1. Data persalinan disimpan.
-2. delivery_data_completed_at diisi.
-3. delivery_data_step direset ke 0.
-4. Log kunjungan postpartum lama dibersihkan agar jadwal baru bisa dibuat.
-5. Bot mengirim edukasi masa nifas/neonatal.
-
-Flow Postpartum dan Kunjungan KF/KN
-Trigger:
-- Data persalinan sudah lengkap.
-- Scheduler masuk window 2 jam sebelum reminder_time.
-- Due time kunjungan sudah tercapai.
-- Kunjungan tersebut belum dikirim/jawab.
-
-Jadwal:
-- KF/KN 1: 6 jam sampai 48 jam pasca persalinan.
-- KF/KN 2: 3 sampai 7 hari pasca persalinan.
-- KF/KN 3: 8 sampai 28 hari pasca persalinan.
-- KF 4: 29 sampai 42 hari pasca persalinan.
-
-Alur:
-1. Bot mengirim edukasi postpartum satu kali jika belum pernah terkirim.
-2. Bot memastikan log kunjungan ada di postpartum_visit_logs.
-3. Jika due_at sudah tercapai, bot mengirim teks pengingat kunjungan.
-4. Bot mengirim poll konfirmasi kunjungan.
-5. Bot menyimpan poll_message_id untuk tracking jawaban.
-6. Maksimal satu kunjungan dikirim per siklus scheduler agar chat tidak penuh.
-7. Jika pengiriman poll gagal, retry mengikuti exponential backoff.
-Flow Jawaban Kunjungan Postpartum
-Trigger:
-- User vote pada poll kunjungan postpartum.
-- Atau user mengirim teks "Sudah" / "Belum" saat ada kunjungan pending.
-
-Alur:
-1. Bot mencari log kunjungan berdasarkan poll_message_id atau pending terbaru.
-2. Jawaban dicatat ke postpartum_visit_logs.
-3. Counter jawaban "Sudah" atau "Belum" dinaikkan sesuai limit harian.
-4. Jika "Sudah", bot mengingatkan untuk lanjut kunjungan berikutnya.
-5. Jika "Belum", bot menyarankan segera kunjungan ke tenaga kesehatan.
-
-Flow Auto Complete Program
-Trigger:
-- Usia kehamilan melewati PREGNANCY_WEEKS_LIMIT.
-- Delivery sudah terkonfirmasi.
-- Tidak ada monitoring postpartum aktif.
-- User tidak sedang mengisi data persalinan.
-- Atau user sudah menjawab "Sudah" untuk kunjungan KF 4.
-
-Alur:
-1. Status user menjadi completed.
-2. allow_remindcare menjadi 0.
-3. Bot tidak mengirim reminder tablet FE lagi.
-4. Bot mengirim notifikasi bahwa masa pengingat selesai.
 
 Command User
 - start / mulai
@@ -307,21 +191,14 @@ Command User
 - help / menu
   Menampilkan daftar perintah.
 - info / informasi
-  Menampilkan ringkasan data ibu, status reminder, HPL, status persalinan,
-  dan progres kunjungan postpartum.
-- cek persalinan / konfirmasi persalinan / persalinan
-  Memulai validasi persalinan manual.
+  Menampilkan ringkasan profil, status pengingat tablet FE, dan catatan harian.
 - edit
   Menampilkan menu edit.
 - edit data
-  Reset data profil, kehamilan, persalinan, dan mulai onboarding dari awal.
-  Perlu konfirmasi dua kali dalam 5 menit.
-- edit persalinan
-  Reset data persalinan dan jadwal postpartum, lalu isi ulang data persalinan.
-  Perlu konfirmasi dua kali dalam 5 menit.
+  Reset data profil dan mulai onboarding dari awal. Perlu konfirmasi dua kali
+  dalam 5 menit.
 - delete / hapus
-  Hapus akun, reminder_logs, dan postpartum_visit_logs. Perlu konfirmasi dua
-  kali dalam 5 menit.
+  Hapus akun dan reminder_logs. Perlu konfirmasi dua kali dalam 5 menit.
 - batal
   Membatalkan konfirmasi edit/hapus.
 - about
@@ -350,12 +227,15 @@ Daftar command:
 Admin Web Dashboard
 URL:
 - /admin/login
+- /admin/auth (tautan masuk dari email)
 - /admin
 
 Autentikasi:
 - Username default: admin.
 - Password dari ADMIN_WEB_PASSWORD jika ada.
 - Jika env kosong, password dibaca/dibuat di data/admin_web_password.txt.
+- Magic link email sekali pakai: GET hanya memeriksa tautan, POST yang memakai
+  token, sehingga prefetch email tidak menghanguskan tautan.
 - Session disimpan in-memory menggunakan cookie rc_admin.
 
 Endpoint API Admin:
@@ -365,15 +245,13 @@ Endpoint API Admin:
 - GET /admin/api/logs
 - GET /admin/api/export/users.csv
 - GET /admin/api/export/reminder_logs.csv
-- GET /admin/api/export/postpartum_logs.csv
 - GET /admin/api/users/:waId/export.csv
 
 Isi Dashboard:
 - Summary user dan jawaban hari ini.
 - Daftar user.
 - Detail user.
-- Riwayat reminder FE.
-- Riwayat kunjungan postpartum.
+- Riwayat pengingat FE.
 - Export CSV untuk analisis data.
 
 Proteksi dan Mekanisme Operasional
@@ -393,19 +271,14 @@ Unit test tersedia melalui:
 npm test
 
 Cakupan test saat ini:
-- parseYesNo.
-- normalizeTimeInput.
-- parseHpht.
-- shouldSendNow.
-- getHplDate.
-- validasi stage persalinan.
-- pesan fase persalinan.
-- parse jawaban validasi persalinan.
-- command cek persalinan.
-- perhitungan waktu postpartum.
-- snapshot status postpartum.
+- parseYesNo dan normalizeTimeInput.
+- shouldSendNow dan jendela kirim.
 - retry backoff.
-- validasi tanggal/jam persalinan.
+- penjaga kirim (send guard).
+- alur onboarding dan reminder.
+- pencatatan vote poll dan pemulihan vote terlewat.
+- panel admin dan export CSV.
+- magic link dua langkah.
 
 Catatan Teknis
 - index.js saat ini bersifat monolith. Semua logic bot, database, admin web,
