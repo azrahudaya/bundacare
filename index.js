@@ -2018,38 +2018,13 @@ function renderAdminDashboardPage(options = {}) {
 
       /* Di bawah 720 px tabel daftar ibu jadi kartu bertumpuk: tidak ada geser samping. */
       @media (max-width: 720px) {
-        .stat-grid { grid-template-columns: 1fr; }
+        /* Tiga angka utama tetap sebaris selama masih muat; baru menumpuk di bawah 360 px. */
+        .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .stat-card { padding: 10px; }
+        .stat-card .stat-header { flex-wrap: wrap; gap: 2px 4px; }
+        .stat-card .stat-val { font-size: 19px; }
+        .stat-card .stat-sub { font-size: 10.5px; }
         .dashboard-grid-2 { grid-template-columns: 1fr; }
-        table.responsive { min-width: 0; }
-        table.responsive thead { display: none; }
-        table.responsive tbody tr {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 5px 10px;
-          padding: 11px 12px;
-          border-top: 1px solid var(--line);
-        }
-        table.responsive tbody tr:first-child { border-top: none; }
-        table.responsive tbody tr:hover { background: transparent; }
-        table.responsive td {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 0;
-          border: none;
-          white-space: normal;
-          font-size: 12.5px;
-        }
-        table.responsive td.name-cell { grid-column: 1 / -1; }
-        table.responsive td[data-label="Jawaban"],
-        table.responsive td[data-label="Kepatuhan"] { grid-column: 1 / -1; }
-        table.responsive td.name-cell a.row-link { height: auto; padding: 0 0 4px; }
-        table.responsive td[data-label]::before {
-          content: attr(data-label);
-          color: var(--muted);
-          font-size: 11.5px;
-        }
-        table.responsive td.num[data-label] { justify-content: flex-end; }
         /* Tabel 7 hari: jadi blok per tanggal, tanpa geser samping */
         .week-table { min-width: 0; }
         .week-table, .week-table thead, .week-table tbody, .week-table tr, .week-table td, .week-table th { display: block; }
@@ -2074,6 +2049,7 @@ function renderAdminDashboardPage(options = {}) {
         .week-table td.bar { grid-column: 1 / -1; width: auto; }
       }
       .dashboard-grid-2.single { grid-template-columns: minmax(0, 1fr); }
+      @media (max-width: 359px) { .stat-grid { grid-template-columns: 1fr; } }
       @media (max-width: 900px) {
         .dashboard-grid-2 { grid-template-columns: minmax(0, 1fr); }
         .dashboard-grid-2 > .panel { min-width: 0; }
@@ -2219,7 +2195,7 @@ function renderAdminDashboardPage(options = {}) {
             <span class="badge" id="week-badge">memuat</span>
           </div>
           <div class="table-wrap">
-            <table class="week-table">
+            <table class="week-table" aria-labelledby="week-title">
               <thead>
                 <tr>
                   <th scope="col">Tanggal</th>
@@ -2275,6 +2251,13 @@ function renderAdminDashboardPage(options = {}) {
         if (!v) return "-";
         const d = new Date(v);
         return Number.isNaN(d.getTime()) ? "-" : d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      }
+      // Tanggal di tabel dan catatan ditulis "28 Okt"; CSV tetap ISO supaya tetap bisa diolah.
+      function fmtDate(v) {
+        if (!v) return "-";
+        const s = String(v);
+        const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + "T00:00:00" : s);
+        return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
       }
       function clampPct(v) { return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0; }
       function classifyPhase(user) {
@@ -2420,7 +2403,7 @@ function renderAdminDashboardPage(options = {}) {
       function renderToday() {
         const summary = summaryCache || {};
         const rem = summary.reminders || {};
-        setText("today-date", rem.date || "");
+        setText("today-date", fmtDate(rem.date));
         setText("today-sudah", fmt(rem.todaySudah));
         setText("today-belum", fmt(rem.todayBelum));
         setText("today-waiting", fmt(rem.todayWaiting));
@@ -2472,7 +2455,8 @@ function renderAdminDashboardPage(options = {}) {
           const tr = document.createElement("tr");
           if (row.date === hariTerakhir) tr.className = "is-today";
           const tanggal = document.createElement("td");
-          tanggal.textContent = row.date;
+          tanggal.textContent = fmtDate(row.date);
+          tanggal.setAttribute("data-label", "Tanggal");
           tr.appendChild(tanggal);
           const labelAngka = ["Terkirim", "Sudah", "Belum"];
           for (let i = 0; i < labelAngka.length; i += 1) {
@@ -2527,10 +2511,11 @@ function renderAdminDashboardPage(options = {}) {
           const key = btn.getAttribute("data-phase-filter");
           btn.setAttribute("aria-pressed", key === phaseFilter ? "true" : "false");
         }
-        document.getElementById("users-count").textContent =
-          filtered.length + " dari " + usersCache.length + " ibu · " +
-          Object.keys(counts).filter((k) => counts[k] > 0)
-            .map((k) => PHASE_LABEL[k] + " " + counts[k]).join(" · ");
+        const statusCounts = Object.keys(counts).filter((k) => counts[k] > 0)
+          .map((k) => PHASE_LABEL[k] + " " + counts[k]).join(" · ");
+        document.getElementById("users-count").textContent = usersCache.length
+          ? filtered.length + " dari " + usersCache.length + " ibu · " + statusCounts
+          : "0 ibu";
 
         tbody.innerHTML = "";
         if (!filtered.length) {
@@ -2539,6 +2524,14 @@ function renderAdminDashboardPage(options = {}) {
           td.colSpan = 5;
           td.className = "muted";
           td.textContent = usersCache.length ? "Tidak ada yang cocok dengan filter." : "Belum ada ibu terdaftar.";
+          if (!usersCache.length) {
+            // Keadaan kosong harus menyebut satu tindakan yang mengisinya.
+            const hint = document.createElement("div");
+            hint.className = "muted";
+            hint.style.marginTop = "4px";
+            hint.textContent = "Ibu mendaftar sendiri di bundacare.site, lalu verifikasi lewat WhatsApp.";
+            td.appendChild(hint);
+          }
           tr.appendChild(td);
           tbody.appendChild(tr);
           return;
@@ -2589,7 +2582,7 @@ function renderAdminDashboardPage(options = {}) {
               const dtSpan = document.createElement("span");
               dtSpan.className = "muted num";
               dtSpan.style.marginLeft = "6px";
-              dtSpan.textContent = fmt(user.last_response_date);
+              dtSpan.textContent = fmtDate(user.last_response_date);
               answerCell.appendChild(dtSpan);
             }
           }
@@ -2603,6 +2596,7 @@ function renderAdminDashboardPage(options = {}) {
             progressCell.className = "num";
             progressCell.textContent = p.fe + "%";
             progressCell.title = "Dari " + Number(user.total_logs || 0) + " pengingat";
+            progressCell.setAttribute("aria-label", p.fe + "% dari " + Number(user.total_logs || 0) + " pengingat");
           }
           tr.appendChild(progressCell);
           tbody.appendChild(tr);
@@ -2629,7 +2623,7 @@ function renderAdminDashboardPage(options = {}) {
           who.textContent = fmt(log.name) + " · " + String(fmt(log.response)).toLowerCase();
           const when = document.createElement("div");
           when.className = "when num";
-          when.textContent = fmt(log.reminder_date) + " · " + fmtTime(log.created_at);
+          when.textContent = fmtDate(log.reminder_date) + " · " + fmtTime(log.created_at);
           left.appendChild(who);
           left.appendChild(when);
           const right = document.createElement("div");
@@ -2745,6 +2739,15 @@ function renderAdminDashboardPage(options = {}) {
       }
       const exportPop = document.querySelector("details.pop");
       if (exportPop) {
+        // Menu Ekspor di layar sempit diposisikan tetap (fixed) di bawah bilahnya,
+        // jadi titik bawah bilah dikirim ke CSS tiap kali menu dibuka atau layar berubah.
+        const syncExportPop = () => {
+          const r = exportPop.getBoundingClientRect();
+          exportPop.style.setProperty("--pop-top", Math.round(r.bottom + 6) + "px");
+        };
+        exportPop.addEventListener("toggle", syncExportPop);
+        window.addEventListener("resize", () => { if (exportPop.open) syncExportPop(); });
+        window.addEventListener("scroll", () => { if (exportPop.open) syncExportPop(); }, { passive: true });
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape" && exportPop.open) exportPop.open = false;
         });
@@ -2786,6 +2789,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
     <style nonce="${nonce}">${ADMIN_CSS}
       .kv.kv-3 > div { border-top: none; }
       .pager { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+      @media (max-width: 720px) { table.responsive td[data-label="Tanggal"] { grid-column: 1 / -1; font-weight: 600; padding-bottom: 2px; } }
       .aksi-status { margin: 0; color: var(--muted); font-size: 11.5px; }
       .aksi-status[data-tone="ok"] { color: var(--ok); }
       .aksi-status[data-tone="bad"] { color: var(--bad); }
@@ -2860,7 +2864,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
           <span class="muted num" id="page-info">-</span>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="responsive" aria-labelledby="riwayat-title">
             <thead><tr><th scope="col">Tanggal</th><th scope="col">Jawaban</th><th scope="col">Sudah</th><th scope="col">Belum</th><th scope="col">Dicatat</th></tr></thead>
             <tbody id="logs-body" aria-busy="true"><tr><td colspan="5" class="muted">Memuat.</td></tr></tbody>
           </table>
@@ -2884,6 +2888,12 @@ function renderAdminUserDetailPage(waId, options = {}) {
         const d = new Date(v);
         return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
       }
+      function fmtDate(v) {
+        if (!v) return '-';
+        const s = String(v);
+        const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00' : s);
+        return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+      }
       function classifyPhase(user) {
         if (user.status === 'onboarding') return 'onboarding';
         if (user.status === 'paused') return 'dijeda';
@@ -2901,7 +2911,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
         if (!res.ok) { const err = new Error('kode ' + res.status); err.status = res.status; throw err; }
         return res.json();
       }
-      function fillRows(tbody, rows, mapper, emptyText, colspan, rowHeader) {
+      function fillRows(tbody, rows, mapper, emptyText, colspan, rowHeader, labels) {
         tbody.innerHTML = '';
         tbody.setAttribute('aria-busy', 'false');
         if (!rows || !rows.length) {
@@ -2920,6 +2930,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
             const head = !!rowHeader && index === 0;
             const node = document.createElement(head ? 'th' : 'td');
             if (head) node.setAttribute('scope', 'row');
+            if (labels && labels[index]) node.setAttribute('data-label', labels[index]);
             node.textContent = fmt(cell);
             tr.appendChild(node);
           });
@@ -2957,8 +2968,9 @@ function renderAdminUserDetailPage(waId, options = {}) {
           const rows = data.logs || [];
           const total = Number(data.total || 0);
           fillRows(document.getElementById('logs-body'), rows,
-            (x) => [x.reminder_date, x.response || 'belum ada', x.response_sudah_count, x.response_belum_count, fmtDt(x.created_at)],
-            'Belum ada riwayat pengingat.', 5, false);
+            (x) => [fmtDate(x.reminder_date), x.response || 'belum ada', x.response_sudah_count, x.response_belum_count, fmtDt(x.created_at)],
+            'Belum ada riwayat pengingat.', 5, false,
+            ['Tanggal', 'Jawaban', 'Sudah', 'Belum', 'Dicatat']);
           const pages = Math.max(1, Math.ceil(total / limit));
           document.getElementById('page-info').textContent = 'halaman ' + (page + 1) + ' dari ' + pages + ' · ' + total + ' baris';
           document.getElementById('prev').disabled = page <= 0;
