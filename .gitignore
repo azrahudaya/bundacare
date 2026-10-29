@@ -21,6 +21,7 @@ infra.local.md
 *_SECRET.md
 *secret*.md
 deploy/secrets*
+.secrets/
 *.pem
 *.key
 id_rsa*
