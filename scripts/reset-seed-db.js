@@ -7,7 +7,8 @@ const { DateTime } = require("luxon");
 
 const TIMEZONE = "Asia/Jakarta";
 const ROOT = path.join(__dirname, "..");
-const DATA_DIR = path.join(ROOT, "data");
+// Hormati DATA_DIR supaya seed demo tidak pernah menimpa basis data kerja.
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "bundacare.db");
 
 function run(db, sql, params = []) {

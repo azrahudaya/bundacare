@@ -1957,7 +1957,7 @@ function renderAdminDashboardPage(options = {}) {
     <style nonce="${nonce}">${ADMIN_CSS}
       .stat-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
         margin-bottom: 12px;
       }
@@ -2014,12 +2014,68 @@ function renderAdminDashboardPage(options = {}) {
       .week-bar.is-none span { background: var(--line-strong); }
       .modes { display: flex; gap: 6px; flex-wrap: wrap; }
       .note.ok { color: var(--ok); }
-      @media (max-width: 900px) {
-        .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .dashboard-grid-2 { grid-template-columns: 1fr; }
-      }
-      @media (max-width: 480px) {
+
+      /* Di bawah 720 px tabel daftar ibu jadi kartu bertumpuk: tidak ada geser samping. */
+      @media (max-width: 720px) {
         .stat-grid { grid-template-columns: 1fr; }
+        .dashboard-grid-2 { grid-template-columns: 1fr; }
+        table.responsive { min-width: 0; }
+        table.responsive thead { display: none; }
+        table.responsive tbody tr {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 5px 10px;
+          padding: 11px 12px;
+          border-top: 1px solid var(--line);
+        }
+        table.responsive tbody tr:first-child { border-top: none; }
+        table.responsive tbody tr:hover { background: transparent; }
+        table.responsive td {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0;
+          border: none;
+          white-space: normal;
+          font-size: 12.5px;
+        }
+        table.responsive td.name-cell { grid-column: 1 / -1; }
+        table.responsive td[data-label="Jawaban"],
+        table.responsive td[data-label="Kepatuhan"] { grid-column: 1 / -1; }
+        table.responsive td.name-cell a.row-link { height: auto; padding: 0 0 4px; }
+        table.responsive td[data-label]::before {
+          content: attr(data-label);
+          color: var(--muted);
+          font-size: 11.5px;
+        }
+        table.responsive td.num[data-label] { justify-content: flex-end; }
+        /* Tabel 7 hari: jadi blok per tanggal, tanpa geser samping */
+        .week-table { min-width: 0; }
+        .week-table, .week-table thead, .week-table tbody, .week-table tr, .week-table td, .week-table th { display: block; }
+        .week-table thead { display: none; }
+        .week-table tr {
+          display: grid;
+          grid-template-columns: 1fr auto auto auto;
+          gap: 4px 10px;
+          align-items: center;
+          padding: 8px 12px;
+          border-top: 1px solid var(--line);
+        }
+        .week-table tr:first-child { border-top: none; }
+        .week-table td { padding: 0; border: none; font-size: 12.5px; }
+        .week-table td.num { text-align: right; }
+        .week-table td.num::before {
+          content: attr(data-label);
+          color: var(--muted);
+          font-size: 11px;
+          margin-right: 4px;
+        }
+        .week-table td.bar { grid-column: 1 / -1; width: auto; }
+      }
+      .dashboard-grid-2.single { grid-template-columns: minmax(0, 1fr); }
+      @media (max-width: 900px) {
+        .dashboard-grid-2 { grid-template-columns: minmax(0, 1fr); }
+        .dashboard-grid-2 > .panel { min-width: 0; }
       }
     </style>
   </head>
@@ -2071,74 +2127,54 @@ function renderAdminDashboardPage(options = {}) {
         </div>
       </section>
 
-      <!-- Status Bot & Jendela Kirim -->
+      <!-- Status bot: satu baris, hanya yang menentukan operator perlu bertindak atau tidak -->
       <section class="panel" id="status-panel" aria-labelledby="status-title">
         <div class="panel-head">
-          <h2 id="status-title">${icon("plug")}Status bot & WhatsApp</h2>
-          <span class="badge" id="status-badge">memuat</span>
+          <h2 id="status-title">${icon("plug")}Status pengiriman</h2>
+          <div class="row">
+            <span class="badge" id="status-badge">memuat</span>
+            <span class="badge" id="status-failed" hidden></span>
+          </div>
         </div>
-        <dl class="kv kv-6">
-          <div><dt>Sesi WhatsApp</dt><dd id="fact-client">-</dd></div>
-          <div><dt>Siap sejak</dt><dd id="fact-ready">-</dd></div>
-          <div><dt>Jendela kirim</dt><dd id="fact-window">-</dd></div>
-          <div><dt>Kuota hari ini</dt><dd id="fact-quota" class="num">-</dd></div>
-          <div><dt>Terkirim</dt><dd id="fact-sent" class="num">-</dd></div>
-          <div><dt>Gagal</dt><dd id="fact-failed" class="num">-</dd></div>
-        </dl>
-        <div class="modes" id="status-chips" style="padding:0 12px 10px"></div>
         <p class="note" id="status-note" role="status" aria-live="polite" style="padding:0 12px 10px;margin:0" hidden></p>
       </section>
 
-      <!-- Perlu Tindakan (Tampil jika ada masalah/pasien sepi) -->
-      <section class="panel" aria-labelledby="action-title" style="margin-top:12px;margin-bottom:12px">
+      <!-- Perlu tindakan: hanya muncul kalau memang ada yang harus dikerjakan -->
+      <section class="panel" id="action-panel" aria-labelledby="action-title" style="margin-top:12px;margin-bottom:12px" hidden>
         <div class="panel-head">
           <h2 id="action-title">${icon("alert")}Perlu tindakan</h2>
-          <span class="badge" id="action-count">memuat</span>
+          <span class="badge badge-warn" id="action-count">0 pasien</span>
         </div>
-        <p class="note" id="action-note" hidden style="padding:10px 12px 0"></p>
-        <ul class="tasks" id="action-list">
-          <li class="empty">Memuat.</li>
-        </ul>
+        <ul class="tasks" id="action-list"></ul>
       </section>
 
-      <!-- 4 Kartu Metrik Hari Ini -->
+      <!-- Angka hari ini: tiga angka yang dipakai memutuskan follow up -->
       <div class="stat-grid" id="today-panel">
-        <div class="stat-card">
-          <div class="stat-header">
-            <span class="stat-label">${icon("clock")}Menunggu respon</span>
-            <span class="muted num" id="today-date"></span>
-          </div>
-          <div class="stat-val" id="today-waiting">-</div>
-          <div class="stat-sub">Belum menjawab polling hari ini</div>
-        </div>
-
         <div class="stat-card">
           <div class="stat-header">
             <span class="stat-label">${icon("check")}Sudah minum</span>
             <span class="badge badge-ok" id="today-rate-badge">-</span>
           </div>
           <div class="stat-val" id="today-sudah">-</div>
-          <div class="stat-sub">Tablet FE diminum hari ini</div>
+          <div class="stat-sub">dari <span id="today-total" class="num">-</span> diingatkan</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
             <span class="stat-label">${icon("alert")}Belum minum</span>
-            <span class="badge badge-warn">tinjau</span>
           </div>
           <div class="stat-val" id="today-belum">-</div>
-          <div class="stat-sub">Tablet FE belum diminum</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("users")}Total pasien</span>
-            <span class="badge badge-ok">aktif</span>
+            <span class="stat-label">${icon("clock")}Belum jawab</span>
+            <span class="muted num" id="today-date"></span>
           </div>
-          <div class="stat-val" id="total-patients-card">-</div>
-          <div class="stat-sub" id="total-patients-sub"><span id="today-blocked" class="num">-</span> dijeda</div>
+          <div class="stat-val" id="today-waiting">-</div>
         </div>
       </div>
+      <p class="note" id="summary-note" role="status" aria-live="polite" hidden style="margin:-4px 0 12px"></p>
 
       <!-- Daftar Pasien (Tabel Utama) -->
       <section class="panel" aria-labelledby="users-title">
@@ -2156,15 +2192,15 @@ function renderAdminDashboardPage(options = {}) {
         </div>
         <p class="note" id="users-note" hidden style="padding:10px 12px 0"></p>
         <div class="table-wrap">
-          <table>
+          <table class="responsive">
             <caption id="users-count">memuat</caption>
             <thead>
               <tr>
                 <th scope="col">Nama & Nomor</th>
                 <th scope="col">Status</th>
-                <th scope="col">Jam Pengingat</th>
-                <th scope="col">Jawaban Terakhir</th>
-                <th scope="col">Kepatuhan 7 Hari</th>
+                <th scope="col">Jam</th>
+                <th scope="col">Jawaban terakhir</th>
+                <th scope="col">Kepatuhan</th>
               </tr>
             </thead>
             <tbody id="users-body" aria-busy="true">
@@ -2174,11 +2210,11 @@ function renderAdminDashboardPage(options = {}) {
         </div>
       </section>
 
-      <!-- Grid 2 Kolom: Kepatuhan 7 Hari & Aktivitas Pengingat -->
-      <div class="dashboard-grid-2">
-        <section class="panel" aria-labelledby="week-title" style="margin-top:0">
+      <!-- Dua panel analisis: tren 7 hari dan catatan terakhir -->
+      <div class="dashboard-grid-2" id="analysis-grid">
+        <section class="panel" id="week-panel" aria-labelledby="week-title" style="margin-top:0">
           <div class="panel-head">
-            <h2 id="week-title">${icon("pulse")}Kepatuhan 7 hari</h2>
+            <h2 id="week-title">${icon("pulse")}7 hari terakhir</h2>
             <span class="badge" id="week-badge">memuat</span>
           </div>
           <div class="table-wrap">
@@ -2187,18 +2223,16 @@ function renderAdminDashboardPage(options = {}) {
                 <tr>
                   <th scope="col">Tanggal</th>
                   <th scope="col" class="num">Terkirim</th>
-                  <th scope="col" class="num">Dijawab</th>
                   <th scope="col" class="num">Sudah</th>
                   <th scope="col" class="num">Belum</th>
-                  <th scope="col">Persen</th>
+                  <th scope="col">Kepatuhan</th>
                 </tr>
               </thead>
               <tbody id="week-body" aria-busy="true">
-                <tr><td colspan="6" class="muted">Memuat.</td></tr>
+                <tr><td colspan="5" class="muted">Memuat.</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="note" id="week-note" role="status" aria-live="polite" style="padding:8px 12px 10px;margin:0;font-size:11px">Angka diambil dari riwayat catatan pengingat harian.</p>
         </section>
 
         <section class="panel" aria-labelledby="logs-title" style="margin-top:0">
@@ -2235,6 +2269,11 @@ function renderAdminDashboardPage(options = {}) {
         if (!v) return "-";
         const d = new Date(v);
         return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+      }
+      function fmtTime(v) {
+        if (!v) return "-";
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? "-" : d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
       }
       function clampPct(v) { return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0; }
       function classifyPhase(user) {
@@ -2280,7 +2319,6 @@ function renderAdminDashboardPage(options = {}) {
         const health = healthCache || {};
         const guard = health.guard || {};
         const client = health.client || {};
-        const cfg = guard.config || {};
         const runtime = health.runtime || {};
         const ready = !!client.ready;
         const paused = !!guard.paused;
@@ -2294,24 +2332,12 @@ function renderAdminDashboardPage(options = {}) {
         const badgeNode = document.getElementById("status-badge");
         badgeNode.className = tone;
         badgeNode.textContent = text;
-        setText("fact-client", ready ? "Tersambung" : "Tidak tersambung");
-        setText("fact-ready", client.lastReadyAt ? fmtDt(client.lastReadyAt) : "belum pernah");
-        const fullWindow = cfg.windowStartHour !== undefined && cfg.windowEndHour !== undefined
-          && cfg.windowStartHour * 60 === cfg.windowEndHour * 60 + Number(cfg.windowEndMinute || 0);
-        const win = cfg.windowStartHour === undefined
-          ? "-"
-          : (fullWindow ? "24 jam" : cfg.windowStartHour + ":00 sampai " + cfg.windowEndHour + ":" + String(cfg.windowEndMinute || 0).padStart(2, "0"));
-        setText("fact-window", guard.withinSendWindow === false ? win + ", di luar jendela" : win);
-        setText("fact-quota", (guard.lastDay || 0) + " / " + (guard.dailyCap === undefined ? "-" : guard.dailyCap));
-        setText("fact-sent", String(guard.sent || 0));
-        setText("fact-failed", String(guard.failures || 0));
-        const chips = document.getElementById("status-chips");
-        chips.innerHTML = "";
-        const mods = [
-          [runtime.maintenance_mode ? "Perawatan aktif" : "Perawatan mati", runtime.maintenance_mode ? "badge badge-bad" : "badge"],
-          [runtime.dry_run ? "Simulasi aktif" : "Kirim nyata", runtime.dry_run ? "badge badge-warn" : "badge badge-ok"],
-        ];
-        for (const [label, tone2] of mods) chips.appendChild(badge(tone2, label));
+        // Gagal kirim hanya muncul kalau memang ada; nol bukan kabar yang perlu dibaca.
+        const failCount = Number(guard.failures || 0);
+        const failedNode = document.getElementById("status-failed");
+        failedNode.hidden = failCount === 0;
+        failedNode.className = "badge badge-bad";
+        failedNode.textContent = failCount > 0 ? failCount + " pesan gagal" : "";
         const note = document.getElementById("status-note");
         if (health.alert) {
           note.hidden = false;
@@ -2346,19 +2372,14 @@ function renderAdminDashboardPage(options = {}) {
         }
       }
       function renderActions() {
+        const panel = document.getElementById("action-panel");
         const list = document.getElementById("action-list");
         const items = (summaryCache && summaryCache.needsAction) || [];
+        document.getElementById("action-count").textContent = items.length + " pasien";
+        // Panel hanya muncul kalau ada yang benar-benar perlu dikerjakan.
+        panel.hidden = items.length === 0;
         list.innerHTML = "";
-        document.getElementById("action-count").textContent = items.length ? items.length + " pasien" : "semua lancar";
-        if (!items.length) {
-          const li = document.createElement("li");
-          li.className = "empty";
-          li.style.color = "var(--ok)";
-          li.style.fontWeight = "500";
-          li.textContent = "Semua pengingat pasien berjalan normal, tidak ada kendala.";
-          list.appendChild(li);
-          return;
-        }
+        if (!items.length) return;
         for (const item of items) {
           const action = ACTIONS[pickAction(item.reason)] ? pickAction(item.reason) : "resume";
           const meta = ACTIONS[action];
@@ -2398,18 +2419,17 @@ function renderAdminDashboardPage(options = {}) {
       function renderToday() {
         const summary = summaryCache || {};
         const rem = summary.reminders || {};
-        const users = summary.users || {};
         setText("today-date", rem.date || "");
-        setText("today-waiting", fmt(rem.todayWaiting));
         setText("today-sudah", fmt(rem.todaySudah));
         setText("today-belum", fmt(rem.todayBelum));
-        setText("today-blocked", fmt(users.total === undefined ? "-" : users.total - (users.runnable || 0)));
+        setText("today-waiting", fmt(rem.todayWaiting));
+        const sudah = Number(rem.todaySudah || 0);
+        const belum = Number(rem.todayBelum || 0);
+        setText("today-total", fmt(sudah + belum));
         const rateBadge = document.getElementById("today-rate-badge");
         if (rateBadge) {
-          const sudah = Number(rem.todaySudah || 0);
-          const belum = Number(rem.todayBelum || 0);
           const total = sudah + belum;
-          rateBadge.textContent = total > 0 ? Math.round((sudah / total) * 100) + "% patuh" : "hari ini";
+          rateBadge.textContent = total > 0 ? Math.round((sudah / total) * 100) + "%" : "-";
         }
       }
       function renderWeek() {
@@ -2421,7 +2441,7 @@ function renderAdminDashboardPage(options = {}) {
         if (!rows.length) {
           const tr = document.createElement("tr");
           const td = document.createElement("td");
-          td.colSpan = 6;
+          td.colSpan = 5;
           td.className = "muted";
           td.textContent = "Belum ada catatan pengingat.";
           tr.appendChild(td);
@@ -2430,9 +2450,21 @@ function renderAdminDashboardPage(options = {}) {
           return;
         }
         const totalTerkirim = rows.reduce((sum, row) => sum + row.sent, 0);
-        const totalDijawab = rows.reduce((sum, row) => sum + row.answered, 0);
+        // Kalau sepekan penuh belum ada pengingat, panelnya tidak perlu makan tempat:
+        // sembunyikan, dan catatan pengingat memakai lebar penuh.
+        const weekPanel = document.getElementById("week-panel");
+        const grid = document.getElementById("analysis-grid");
+        if (totalTerkirim === 0) {
+          if (weekPanel) weekPanel.hidden = true;
+          if (grid) grid.classList.add("single");
+          badgeNode.textContent = "belum ada";
+          return;
+        }
+        if (weekPanel) weekPanel.hidden = false;
+        if (grid) grid.classList.remove("single");
+        const totalSudah = rows.reduce((sum, row) => sum + row.sudah, 0);
         badgeNode.textContent = totalTerkirim > 0
-          ? Math.round((totalDijawab / totalTerkirim) * 100) + "% dijawab"
+          ? Math.round((totalSudah / totalTerkirim) * 100) + "% minum"
           : "belum ada pengingat";
         const hariTerakhir = rows[rows.length - 1].date;
         for (const row of rows) {
@@ -2441,27 +2473,33 @@ function renderAdminDashboardPage(options = {}) {
           const tanggal = document.createElement("td");
           tanggal.textContent = row.date;
           tr.appendChild(tanggal);
-          for (const angka of [row.sent, row.answered, row.sudah, row.belum]) {
+          const labelAngka = ["Terkirim", "Sudah", "Belum"];
+          for (let i = 0; i < labelAngka.length; i += 1) {
             const td = document.createElement("td");
             td.className = "num";
-            td.textContent = String(angka);
+            td.setAttribute("data-label", labelAngka[i]);
+            td.textContent = String([row.sent, row.sudah, row.belum][i]);
             tr.appendChild(td);
           }
           const sel = document.createElement("td");
           sel.className = "bar";
-          if (row.percent === null) {
+          // Kepatuhan = benar-benar minum (Sudah) dibagi pengingat terkirim.
+          // Jangan pakai row.percent: itu rasio dijawab, termasuk jawaban Belum.
+          const patuh = row.sent > 0 ? Math.round((row.sudah / row.sent) * 100) : null;
+          if (patuh === null) {
             const kosong = document.createElement("span");
             kosong.className = "muted";
-            kosong.textContent = "tidak ada pengingat";
+            kosong.title = "tidak ada pengingat";
+            kosong.textContent = "·";
             sel.appendChild(kosong);
           } else {
             const teks = document.createElement("div");
-            teks.textContent = row.percent + " persen";
+            teks.textContent = patuh + "%";
             const bar = document.createElement("span");
-            bar.className = row.percent === 0 ? "week-bar is-none" : "week-bar";
+            bar.className = patuh === 0 ? "week-bar is-none" : "week-bar";
             bar.setAttribute("aria-hidden", "true");
             const isi = document.createElement("span");
-            isi.style.width = row.percent + "%";
+            isi.style.width = patuh + "%";
             bar.appendChild(isi);
             sel.appendChild(teks);
             sel.appendChild(bar);
@@ -2490,15 +2528,8 @@ function renderAdminDashboardPage(options = {}) {
         }
         document.getElementById("users-count").textContent =
           filtered.length + " dari " + usersCache.length + " ibu · " +
-          Object.keys(counts).map((k) => PHASE_LABEL[k] + " " + counts[k]).join(" · ");
-
-        const totalCard = document.getElementById("total-patients-card");
-        if (totalCard) totalCard.textContent = usersCache.length + " Ibu";
-        const totalSub = document.getElementById("total-patients-sub");
-        if (totalSub) {
-          const activeCount = usersCache.filter(u => u.status === "active").length;
-          totalSub.textContent = activeCount + " aktif menerima pengingat";
-        }
+          Object.keys(counts).filter((k) => counts[k] > 0)
+            .map((k) => PHASE_LABEL[k] + " " + counts[k]).join(" · ");
 
         tbody.innerHTML = "";
         if (!filtered.length) {
@@ -2535,13 +2566,16 @@ function renderAdminDashboardPage(options = {}) {
           nameCell.appendChild(link);
           tr.appendChild(nameCell);
           const statusCell = document.createElement("td");
+          statusCell.setAttribute("data-label", "Status");
           statusCell.appendChild(badge(STATUS_TONE[user.status] || "badge", STATUS_LABEL[user.status] || fmt(user.status)));
           tr.appendChild(statusCell);
           const timeCell = document.createElement("td");
           timeCell.className = "num";
+          timeCell.setAttribute("data-label", "Jam");
           timeCell.textContent = user.reminder_time ? user.reminder_time + " WIB" : "-";
           tr.appendChild(timeCell);
           const answerCell = document.createElement("td");
+          answerCell.setAttribute("data-label", "Jawaban");
           if (!user.last_response) {
             answerCell.className = "muted";
             answerCell.textContent = "belum ada";
@@ -2560,12 +2594,14 @@ function renderAdminDashboardPage(options = {}) {
           }
           tr.appendChild(answerCell);
           const progressCell = document.createElement("td");
+          progressCell.setAttribute("data-label", "Kepatuhan");
           if (!p.started) {
             progressCell.className = "muted";
             progressCell.textContent = "belum mulai";
           } else {
             progressCell.className = "num";
-            progressCell.textContent = p.fe + "% dari " + Number(user.total_logs || 0) + " pengingat";
+            progressCell.textContent = p.fe + "%";
+            progressCell.title = "Dari " + Number(user.total_logs || 0) + " pengingat";
           }
           tr.appendChild(progressCell);
           tbody.appendChild(tr);
@@ -2574,7 +2610,8 @@ function renderAdminDashboardPage(options = {}) {
       function renderLogs() {
         const list = document.getElementById("logs-body");
         list.setAttribute("aria-busy", "false");
-        const limit = logsOpen ? 50 : 10;
+        const sempit = window.matchMedia("(max-width: 720px)").matches;
+        const limit = logsOpen ? 50 : (sempit ? 5 : 10);
         list.innerHTML = "";
         if (!logsCache.length) {
           const li = document.createElement("li");
@@ -2591,7 +2628,7 @@ function renderAdminDashboardPage(options = {}) {
           who.textContent = fmt(log.name) + " · " + String(fmt(log.response)).toLowerCase();
           const when = document.createElement("div");
           when.className = "when num";
-          when.textContent = fmt(log.reminder_date) + " · dicatat " + fmtDt(log.created_at);
+          when.textContent = fmt(log.reminder_date) + " · " + fmtTime(log.created_at);
           left.appendChild(who);
           left.appendChild(when);
           const right = document.createElement("div");
@@ -2602,7 +2639,8 @@ function renderAdminDashboardPage(options = {}) {
           list.appendChild(li);
         }
         const toggle = document.getElementById("logs-toggle");
-        toggle.hidden = logsCache.length <= 10;
+        const batasLipat = window.matchMedia("(max-width: 720px)").matches ? 5 : 10;
+        toggle.hidden = logsCache.length <= batasLipat;
         toggle.lastChild.textContent = logsOpen ? "Tampilkan 10" : "Tampilkan 50";
       }
       function syncUrl() {
@@ -2636,8 +2674,15 @@ function renderAdminDashboardPage(options = {}) {
         const panel = document.getElementById("qr-panel");
         try {
           const d = await fetchJson("/admin/api/qr");
-          if (d.connected) { panel.hidden = true; return; }
+          const statusPanel = document.getElementById("status-panel");
+          if (d.connected) {
+            panel.hidden = true;
+            if (statusPanel) statusPanel.hidden = false;
+            return;
+          }
           panel.hidden = false;
+          // Panel QR memuat status sesi yang sama; jangan tampilkan dua peringatan kembar.
+          if (statusPanel) statusPanel.hidden = true;
           const img = document.getElementById("qr-img");
           const badgeNode = document.getElementById("qr-badge");
           const note = document.getElementById("qr-note");
@@ -2666,7 +2711,7 @@ function renderAdminDashboardPage(options = {}) {
         btn.disabled = true;
         const results = await Promise.all([
           guard("status-note", async () => { healthCache = await fetchJson("/admin/api/health"); renderStatus(); }),
-          guard("action-note", async () => { summaryCache = await fetchJson("/admin/api/summary"); renderToday(); renderWeek(); renderActions(); }),
+          guard("summary-note", async () => { summaryCache = await fetchJson("/admin/api/summary"); renderToday(); renderWeek(); renderActions(); }),
           guard("users-note", async () => { const d = await fetchJson("/admin/api/users"); usersCache = d.users || []; renderUsers(); }),
           guard("logs-note", async () => { const d = await fetchJson("/admin/api/logs"); logsCache = d.logs || []; renderLogs(); }),
           guard("qr-note", async () => { await loadQr(); }),
@@ -2674,9 +2719,11 @@ function renderAdminDashboardPage(options = {}) {
         if (!results[1].ok) {
           const weekBody = document.getElementById("week-body");
           weekBody.setAttribute("aria-busy", "false");
-          weekBody.innerHTML = '<tr><td colspan="6" class="muted">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>';
+          weekBody.innerHTML = '<tr><td colspan="5" class="muted">Ringkasan gagal dimuat. Klik Muat ulang untuk mencoba lagi.</td></tr>';
           document.getElementById("week-badge").textContent = "gagal";
+          const panel = document.getElementById("action-panel");
           const list = document.getElementById("action-list");
+          panel.hidden = false;
           list.innerHTML = "";
           const li = document.createElement("li");
           li.className = "empty";
@@ -2813,7 +2860,6 @@ function renderAdminUserDetailPage(waId, options = {}) {
         </div>
         <div class="table-wrap">
           <table>
-            <caption>20 baris per halaman.</caption>
             <thead><tr><th scope="col">Tanggal</th><th scope="col">Jawaban</th><th scope="col">Sudah</th><th scope="col">Belum</th><th scope="col">Dicatat</th></tr></thead>
             <tbody id="logs-body" aria-busy="true"><tr><td colspan="5" class="muted">Memuat.</td></tr></tbody>
           </table>
@@ -2843,8 +2889,8 @@ function renderAdminUserDetailPage(waId, options = {}) {
         if (user.status === 'completed') return 'selesai';
         return 'aktif';
       }
-      const PHASE_LABEL = { onboarding: 'Pendataan', aktif: 'Aktif', dijeda: 'Dijeda', selesai: 'Selesai' };
-      const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Pendataan' };
+      const PHASE_LABEL = { onboarding: 'Belum lengkap', aktif: 'Aktif', dijeda: 'Dijeda', selesai: 'Selesai' };
+      const STATUS_LABEL = { active: 'Aktif', paused: 'Dijeda', completed: 'Selesai', onboarding: 'Belum lengkap' };
       const STATUS_TONE = { active: 'badge badge-ok', paused: 'badge badge-warn', completed: 'badge', onboarding: 'badge badge-accent' };
       function setNote(text) { document.getElementById('page-note').textContent = text || ''; }
       function setBusy(id, busy) { const n = document.getElementById(id); if (n) n.setAttribute('aria-busy', busy ? 'true' : 'false'); }
@@ -2910,7 +2956,7 @@ function renderAdminUserDetailPage(waId, options = {}) {
           const rows = data.logs || [];
           const total = Number(data.total || 0);
           fillRows(document.getElementById('logs-body'), rows,
-            (x) => [x.reminder_date, x.response || 'Pending', x.response_sudah_count, x.response_belum_count, fmtDt(x.created_at)],
+            (x) => [x.reminder_date, x.response || 'belum ada', x.response_sudah_count, x.response_belum_count, fmtDt(x.created_at)],
             'Belum ada riwayat pengingat.', 5, false);
           const pages = Math.max(1, Math.ceil(total / limit));
           document.getElementById('page-info').textContent = 'halaman ' + (page + 1) + ' dari ' + pages + ' · ' + total + ' baris';
