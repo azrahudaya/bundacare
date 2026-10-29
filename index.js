@@ -2145,10 +2145,11 @@ function renderAdminDashboardPage(options = {}) {
 
         <div class="stat-card">
           <div class="stat-header">
-            <span class="stat-label">${icon("clock")}Belum jawab</span>
+            <span class="stat-label">${icon("clock")}Belum diingatkan</span>
             <span class="muted num" id="today-date"></span>
           </div>
           <div class="stat-val" id="today-waiting">-</div>
+          <div class="stat-sub">hari ini belum dikirim</div>
         </div>
       </div>
       <p class="note" id="summary-note" role="status" aria-live="polite" hidden style="margin:-4px 0 12px"></p>
