@@ -2002,6 +2002,7 @@ function renderAdminDashboardPage(options = {}) {
         grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
         gap: 12px;
         margin-top: 12px;
+        align-items: start;
       }
       .week-table { width: 100%; border-collapse: collapse; }
       .week-table th, .week-table td { padding: 7px 12px; text-align: left; border-top: 1px solid var(--line); }
